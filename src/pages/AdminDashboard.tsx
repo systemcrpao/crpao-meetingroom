@@ -1,10 +1,16 @@
-import { useState, useMemo } from "react";
-import { format, addDays, startOfWeek, isSameDay } from "date-fns";
+import { useState, useMemo, useEffect } from "react";
+import {
+  format, addDays, startOfWeek, isSameDay,
+  startOfMonth, endOfMonth, eachDayOfInterval,
+  addMonths, getDay, isSameMonth,
+} from "date-fns";
 import { th } from "date-fns/locale";
-import { Check, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, X, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Clock, MapPin, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { INITIAL_RESERVATIONS, ROOMS, ROOM_COLORS, ROOM_COLORS_LIGHT, type Reservation } from "@/lib/mockData";
+import { ROOMS, ROOM_COLORS, ROOM_COLORS_LIGHT } from "@/lib/mockData";
 import { useToast } from "@/hooks/use-toast";
+import { db } from "@/lib/firebase";
+import { collection, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,49 +21,110 @@ import {
 } from "@/components/ui/table";
 
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 8); // 8-18
+const WEEK_LABELS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
 export default function AdminDashboard() {
   const { toast } = useToast();
-  const [reservations, setReservations] = useState<Reservation[]>(INITIAL_RESERVATIONS);
+  const [reservations, setReservations] = useState<any[]>([]);
   const [roomFilter, setRoomFilter] = useState("all");
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [calendarView, setCalendarView] = useState<"week" | "month">("month");
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
+  const [monthDate, setMonthDate] = useState(() => new Date());
+  const [pendingPage, setPendingPage] = useState(1);
+  const [selectedDay, setSelectedDay] = useState<Date>(() => new Date());
+  const ITEMS_PER_PAGE = 5;
+
+  // Real-time Firestore listener
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, "reservations"),
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setReservations(data);
+      },
+      (error) => {
+        console.error("Firestore snapshot error:", error);
+        toast({
+          title: "เกิดข้อผิดพลาด",
+          description: "ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่",
+          variant: "destructive",
+        });
+      }
+    );
+    return () => unsubscribe();
+  }, []);
 
   const pendingReservations = reservations.filter((r) => r.status === "pending");
   const approvedReservations = reservations.filter((r) => r.status === "approved");
+  const totalPendingPages = Math.max(1, Math.ceil(pendingReservations.length / ITEMS_PER_PAGE));
+  const paginatedPending = pendingReservations.slice((pendingPage - 1) * ITEMS_PER_PAGE, pendingPage * ITEMS_PER_PAGE);
 
-  const handleApprove = (id: string) => {
-    setReservations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "approved" } : r))
-    );
-    toast({ title: "อนุมัติแล้ว", description: "รายการจองได้รับการอนุมัติเรียบร้อย" });
-  };
-
-  const handleReject = (id: string) => {
-    setReservations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "rejected" } : r))
-    );
-    toast({ title: "ปฏิเสธแล้ว", description: "รายการจองถูกปฏิเสธ", variant: "destructive" });
+  const handleUpdateStatus = async (id: string, newStatus: "approved" | "rejected") => {
+    try {
+      if (newStatus === "approved") {
+        await updateDoc(doc(db, "reservations", id), { status: "approved" });
+        toast({ title: "อนุมัติแล้ว", description: "รายการจองได้รับการอนุมัติเรียบร้อย" });
+      } else {
+        // ปฏิเสธ → ลบออกจากฐานข้อมูลเลย
+        await deleteDoc(doc(db, "reservations", id));
+        toast({ title: "ปฏิเสธและลบแล้ว", description: "รายการจองถูกปฏิเสธและลบออกจากระบบแล้ว", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: "ไม่สามารถดำเนินการได้ กรุณาลองใหม่",
+        variant: "destructive",
+      });
+    }
   };
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  const filteredApproved = useMemo(() => {
-    if (roomFilter === "all") return approvedReservations;
-    return approvedReservations.filter((r) => r.room === roomFilter);
-  }, [approvedReservations, roomFilter]);
+  // รวมทั้ง approved และ pending ไว้แสดงในปฏิทิน
+  const calendarReservations = useMemo(() => {
+    const base = reservations.filter((r) => r.status === "approved" || r.status === "pending");
+    if (roomFilter === "all") return base;
+    return base.filter((r) => r.room === roomFilter);
+  }, [reservations, roomFilter]);
 
   const getBookingsForDay = (day: Date) =>
-    filteredApproved.filter((r) => isSameDay(new Date(r.date), day));
+    calendarReservations.filter((r) => {
+      if (!r.date) return false;
+      return isSameDay(new Date(r.date), day);
+    });
 
-  const getBlockStyle = (r: Reservation) => {
-    const startH = parseInt(r.startTime.split(":")[0]);
-    const startM = parseInt(r.startTime.split(":")[1]);
-    const endH = parseInt(r.endTime.split(":")[0]);
-    const endM = parseInt(r.endTime.split(":")[1]);
-    const top = ((startH - 8) + startM / 60) * 4; // 4rem per hour
+  // Bookings for selected day (for the side card)
+  const selectedDayBookings = useMemo(() => {
+    return reservations
+      .filter((r) => {
+        if (!r.date) return false;
+        if (r.status !== "approved" && r.status !== "pending") return false;
+        if (roomFilter !== "all" && r.room !== roomFilter) return false;
+        return isSameDay(new Date(r.date), selectedDay);
+      })
+      .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));
+  }, [reservations, selectedDay, roomFilter]);
+
+  const getBlockStyle = (r: any) => {
+    const startH = parseInt(r.startTime?.split(":")[0] ?? "8");
+    const startM = parseInt(r.startTime?.split(":")[1] ?? "0");
+    const endH = parseInt(r.endTime?.split(":")[0] ?? "9");
+    const endM = parseInt(r.endTime?.split(":")[1] ?? "0");
+    const top = ((startH - 8) + startM / 60) * 4;
     const height = ((endH - startH) + (endM - startM) / 60) * 4;
     return { top: `${top}rem`, height: `${height}rem` };
   };
+
+  // --- Month calendar helpers ---
+  const monthDays = useMemo(() => {
+    const first = startOfMonth(monthDate);
+    const last = endOfMonth(monthDate);
+    const days = eachDayOfInterval({ start: first, end: last });
+    // padding ด้านหน้า (จันทร์ = 0)
+    const padStart = getDay(first);
+    return { days, padStart };
+  }, [monthDate]);
 
   return (
     <div className="space-y-6">
@@ -66,7 +133,7 @@ export default function AdminDashboard() {
         <CardHeader>
           <CardTitle className="text-xl">รายการรออนุมัติ</CardTitle>
           <CardDescription>
-            {pendingReservations.length} รายการที่รอดำเนินการ
+            {pendingReservations.length} รายการที่รอดำเนินการ (หน้า {pendingPage}/{totalPendingPages})
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -87,7 +154,7 @@ export default function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pendingReservations.map((r) => (
+                  {paginatedPending.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium text-xs">{r.department}</TableCell>
                       <TableCell className="text-xs max-w-[180px] truncate">{r.topic}</TableCell>
@@ -97,7 +164,7 @@ export default function AdminDashboard() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs whitespace-nowrap">
-                        {format(new Date(r.date), "d MMM yy", { locale: th })}
+                        {r.date ? format(new Date(r.date), "d MMM yy", { locale: th }) : "-"}
                         <br />
                         {r.startTime}-{r.endTime}
                       </TableCell>
@@ -107,10 +174,20 @@ export default function AdminDashboard() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button size="sm" variant="outline" className="h-7 text-xs text-[hsl(var(--room-green))]" onClick={() => handleApprove(r.id)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs text-[hsl(var(--room-green))]"
+                            onClick={() => handleUpdateStatus(r.id, "approved")}
+                          >
                             <Check className="h-3 w-3 mr-1" /> อนุมัติ
                           </Button>
-                          <Button size="sm" variant="outline" className="h-7 text-xs text-destructive" onClick={() => handleReject(r.id)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs text-destructive"
+                            onClick={() => handleUpdateStatus(r.id, "rejected")}
+                          >
                             <X className="h-3 w-3 mr-1" /> ปฏิเสธ
                           </Button>
                         </div>
@@ -121,20 +198,55 @@ export default function AdminDashboard() {
               </Table>
             </div>
           )}
+          {/* Pagination */}
+          {totalPendingPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-4">
+              <Button variant="outline" size="sm" disabled={pendingPage <= 1} onClick={() => setPendingPage(p => p - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground">หน้า {pendingPage} / {totalPendingPages}</span>
+              <Button variant="outline" size="sm" disabled={pendingPage >= totalPendingPages} onClick={() => setPendingPage(p => p + 1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
+      {/* Calendar + Daily Bookings */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Calendar View */}
-      <Card>
+      <Card className="lg:col-span-2">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <CardTitle className="text-xl">ตารางการจอง</CardTitle>
-              <CardDescription>ภาพรวมการจองห้องประชุมรายสัปดาห์</CardDescription>
+              <CardDescription>
+                ภาพรวมการจองห้องประชุม{calendarView === "week" ? "รายสัปดาห์" : "รายเดือน"}
+              </CardDescription>
             </div>
             <div className="flex items-center gap-2">
+              {/* Toggle week/month */}
+              <div className="flex rounded-md border overflow-hidden">
+                <Button
+                  variant={calendarView === "month" ? "default" : "ghost"}
+                  size="sm"
+                  className="rounded-none h-8 px-3"
+                  onClick={() => setCalendarView("month")}
+                >
+                  <CalendarDays className="h-4 w-4 mr-1" /> เดือน
+                </Button>
+                <Button
+                  variant={calendarView === "week" ? "default" : "ghost"}
+                  size="sm"
+                  className="rounded-none h-8 px-3"
+                  onClick={() => setCalendarView("week")}
+                >
+                  <CalendarRange className="h-4 w-4 mr-1" /> สัปดาห์
+                </Button>
+              </div>
               <Select value={roomFilter} onValueChange={setRoomFilter}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="กรองตามห้อง" />
                 </SelectTrigger>
                 <SelectContent>
@@ -155,88 +267,305 @@ export default function AdminDashboard() {
                 <span className="text-xs text-muted-foreground">{r.value}</span>
               </div>
             ))}
+            {/* pending legend */}
+            <div className="flex items-center gap-1.5 ml-2 pl-2 border-l">
+              <div className="h-3 w-3 rounded-sm bg-muted-foreground/40 border border-dashed border-muted-foreground/60" />
+              <span className="text-xs text-muted-foreground">รออนุมัติ</span>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          {/* Week navigation */}
-          <div className="flex items-center justify-between mb-4">
-            <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))}>
-              <ChevronLeft className="h-4 w-4 mr-1" /> สัปดาห์ก่อน
-            </Button>
-            <span className="text-sm font-medium">
-              {format(weekDays[0], "d MMM", { locale: th })} — {format(weekDays[6], "d MMM yyyy", { locale: th })}
-            </span>
-            <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, 7))}>
-              สัปดาห์ถัดไป <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
+          {/* ===== MONTH VIEW ===== */}
+          {calendarView === "month" && (
+            <>
+              {/* Month navigation */}
+              <div className="flex items-center justify-between mb-4">
+                <Button variant="outline" size="sm" onClick={() => setMonthDate(addMonths(monthDate, -1))}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> เดือนก่อน
+                </Button>
+                <span className="text-sm font-semibold">
+                  {format(monthDate, "MMMM", { locale: th })} {monthDate.getFullYear() + 543}
+                </span>
+                <Button variant="outline" size="sm" onClick={() => setMonthDate(addMonths(monthDate, 1))}>
+                  เดือนถัดไป <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
 
-          {/* Timeline grid */}
-          <div className="overflow-x-auto">
-            <div className="grid min-w-[800px]" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
-              {/* Header row */}
-              <div className="border-b border-r p-2" />
-              {weekDays.map((day) => (
-                <div
-                  key={day.toISOString()}
-                  className={cn(
-                    "border-b p-2 text-center text-xs font-medium",
-                    isSameDay(day, new Date()) && "bg-primary/5"
-                  )}
-                >
-                  <div>{format(day, "EEE", { locale: th })}</div>
-                  <div className={cn(
-                    "text-lg font-bold",
-                    isSameDay(day, new Date()) && "text-primary"
+              {/* Day-of-week headers */}
+              <div className="grid grid-cols-7 mb-1">
+                {WEEK_LABELS.map((d, i) => (
+                  <div key={d} className={cn(
+                    "text-center text-xs font-semibold py-1",
+                    i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-muted-foreground"
                   )}>
-                    {format(day, "d")}
-                  </div>
-                </div>
-              ))}
-
-              {/* Time column + day columns */}
-              <div className="border-r">
-                {HOURS.map((h) => (
-                  <div key={h} className="h-16 border-b px-2 flex items-start pt-1">
-                    <span className="text-xs text-muted-foreground">{h.toString().padStart(2, "0")}:00</span>
+                    {d}
                   </div>
                 ))}
               </div>
-              {weekDays.map((day) => {
-                const bookings = getBookingsForDay(day);
-                return (
-                  <div
-                    key={day.toISOString()}
-                    className={cn("relative", isSameDay(day, new Date()) && "bg-primary/5")}
-                  >
-                    {HOURS.map((h) => (
-                      <div key={h} className="h-16 border-b border-r" />
-                    ))}
-                    {bookings.map((r) => {
-                      const style = getBlockStyle(r);
-                      return (
+
+              {/* Calendar grid */}
+              <div className="grid grid-cols-7 border-l border-t">
+                {/* Padding cells */}
+                {Array.from({ length: monthDays.padStart }).map((_, i) => (
+                  <div key={`pad-${i}`} className="border-r border-b aspect-square bg-muted/30" />
+                ))}
+
+                {/* Day cells */}
+                {monthDays.days.map((day) => {
+                  const bookings = getBookingsForDay(day);
+                  const isToday = isSameDay(day, new Date());
+                  const isSun   = getDay(day) === 0;
+                  const isSat   = getDay(day) === 6;
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      className={cn(
+                        "border-r border-b aspect-square p-1 flex flex-col gap-0.5 cursor-pointer transition-colors",
+                        !isSameMonth(day, monthDate) && "bg-muted/30",
+                        isSameDay(day, selectedDay) && "bg-primary/10 ring-1 ring-inset ring-primary/30",
+                        !isSameDay(day, selectedDay) && isToday && "bg-primary/5",
+                        !isSameDay(day, selectedDay) && !isToday && isSun && "bg-red-50/70",
+                        !isSameDay(day, selectedDay) && !isToday && isSat && "bg-blue-50/70",
+                        !isSameDay(day, selectedDay) && "hover:bg-muted/50",
+                      )}
+                      onClick={() => setSelectedDay(day)}
+                    >
+                      {/* Date number */}
+                      <div
+                        className={cn(
+                          "text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full mb-0.5 self-end cursor-pointer transition-colors",
+                          isToday && !isSameDay(day, selectedDay) && "bg-primary text-primary-foreground",
+                          isSameDay(day, selectedDay) && "bg-primary text-primary-foreground ring-2 ring-primary/50",
+                          !isToday && !isSameDay(day, selectedDay) && isSun && "text-red-500",
+                          !isToday && !isSameDay(day, selectedDay) && isSat && "text-blue-500",
+                          !isSameDay(day, selectedDay) && "hover:bg-muted",
+                        )}
+                        onClick={() => setSelectedDay(day)}
+                      >
+                        {format(day, "d")}
+                      </div>
+
+                      {/* Booking chips (max 3, rest collapsed) */}
+                      {bookings.slice(0, 3).map((r) => (
                         <div
                           key={r.id}
+                          title={`${r.topic}\n${r.room} | ${r.startTime}-${r.endTime}\n${r.bookerName}${
+                            r.status === "pending" ? "\n[รออนุมัติ]" : ""
+                          }`}
                           className={cn(
-                            "absolute left-0.5 right-0.5 rounded-md px-1.5 py-1 text-white text-[10px] leading-tight overflow-hidden cursor-default shadow-sm",
-                            ROOM_COLORS[r.room]
+                            "rounded px-1 py-0.5 text-[10px] leading-tight truncate cursor-default",
+                            r.status === "pending"
+                              ? "bg-muted-foreground/30 text-foreground border border-dashed border-muted-foreground/50"
+                              : cn("text-white", ROOM_COLORS[r.room])
                           )}
-                          style={style}
-                          title={`${r.topic}\n${r.room} | ${r.startTime}-${r.endTime}\n${r.bookerName}`}
                         >
-                          <div className="font-semibold truncate">{r.room}</div>
-                          <div className="truncate opacity-90">{r.topic}</div>
-                          <div className="opacity-75">{r.startTime}-{r.endTime}</div>
+                          {r.status === "pending" && "⧖ "}{r.startTime} {r.room}
                         </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                      ))}
+                      {bookings.length > 3 && (
+                        <div className="text-[10px] text-muted-foreground pl-1">+{bookings.length - 3} รายการ</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* ===== WEEK VIEW (Horizontal Gantt per Day) ===== */}
+          {calendarView === "week" && (
+            <>
+              {/* Week navigation */}
+              <div className="flex items-center justify-between mb-4">
+                <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> สัปดาห์ก่อน
+                </Button>
+                <span className="text-sm font-medium">
+                  {format(weekDays[0], "d MMM", { locale: th })} — {format(weekDays[6], "d MMM", { locale: th })} {weekDays[6].getFullYear() + 543}
+                </span>
+                <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, 7))}>
+                  สัปดาห์ถัดไป <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+
+              {/* Time ruler */}
+              <div className="flex mb-1">
+                <div className="w-[94px] flex-shrink-0" />
+                <div className="flex-1 relative h-5">
+                  {HOURS.map((h) => {
+                    const pct = ((h - 8) / 10) * 100;
+                    return (
+                      <span
+                        key={h}
+                        className="absolute text-[10px] text-muted-foreground -translate-x-1/2 select-none"
+                        style={{ left: `${pct}%` }}
+                      >
+                        {h.toString().padStart(2, "0")}:00
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Day rows */}
+              <div className="space-y-1">
+                {weekDays.map((day) => {
+                  const bookings = getBookingsForDay(day);
+                  const isToday = isSameDay(day, new Date());
+                  const isSun   = getDay(day) === 0;
+                  const isSat   = getDay(day) === 6;
+                  const isWeekend = isSun || isSat;
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      className={cn(
+                        "flex items-start gap-2 rounded-lg border px-2 py-1.5",
+                        isToday ? "border-primary/50 bg-primary/5" :
+                        isSun ? "border-red-200 bg-red-50/50" :
+                        isSat ? "border-blue-200 bg-blue-50/50" :
+                        "border-border"
+                      )}
+                    >
+                      {/* Day label */}
+                      <div className="w-[80px] flex-shrink-0 text-right pr-1 pt-0.5">
+                        <div className={cn(
+                          "text-[10px] font-semibold",
+                          isSun ? "text-red-400" : isSat ? "text-blue-400" : "text-muted-foreground"
+                        )}>
+                          {format(day, "EEE", { locale: th })}
+                        </div>
+                        <div className={cn(
+                          "text-lg font-bold leading-none",
+                          isToday ? "text-primary" : isSun ? "text-red-500" : isSat ? "text-blue-500" : ""
+                        )}>
+                          {format(day, "d")}
+                        </div>
+                        <div className="text-[9px] text-muted-foreground">
+                          {format(day, "MMM", { locale: th })} {(day.getFullYear() + 543).toString().slice(-2)}
+                        </div>
+                      </div>
+
+                      {/* Gantt timeline */}
+                      <div className="flex-1 min-w-0 overflow-hidden relative">
+                        {/* Booking bars */}
+                        {bookings.length === 0 ? (
+                          <div className="h-6 flex items-center">
+                            <span className="text-xs text-muted-foreground italic">ไม่มีการจอง</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-0.5">
+                            {bookings.map((r) => {
+                              const startH = parseInt(r.startTime?.split(":")[0] ?? "8");
+                              const startM = parseInt(r.startTime?.split(":")[1] ?? "0");
+                              const endH   = parseInt(r.endTime?.split(":")[0]   ?? "9");
+                              const endM   = parseInt(r.endTime?.split(":")[1]   ?? "0");
+                              const totalMins = 10 * 60; // 08:00–18:00
+                              const startMins = (startH - 8) * 60 + startM;
+                              const durMins   = Math.max(30, (endH - startH) * 60 + (endM - startM));
+                              const leftPct  = (startMins / totalMins) * 100;
+                              const widthPct = (durMins  / totalMins) * 100;
+                              const isPending = r.status === "pending";
+                              return (
+                                <div key={r.id} className="relative h-5">
+                                  <div
+                                    className={cn(
+                                      "absolute top-0 bottom-0 rounded flex items-center px-1.5",
+                                      "text-[10px] font-medium overflow-hidden shadow-sm cursor-default",
+                                      isPending
+                                        ? "bg-muted-foreground/30 text-foreground border border-dashed border-muted-foreground/60"
+                                        : cn("text-white", ROOM_COLORS[r.room])
+                                    )}
+                                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                                    title={`${r.topic}\n${r.room} | ${r.startTime}–${r.endTime}\n${r.bookerName}${
+                                      isPending ? "\n[รออนุมัติ]" : ""
+                                    }`}
+                                  >
+                                    <span className="truncate">
+                                      {isPending && "⧖ "}{r.room} · {r.startTime}–{r.endTime}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
+
+      {/* Daily Bookings Card */}
+      <Card className="lg:col-span-1">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <CalendarDays className="h-5 w-5" />
+            รายการจองประจำวัน
+          </CardTitle>
+          <CardDescription>
+            {format(selectedDay, "EEEE d MMMM", { locale: th })} {selectedDay.getFullYear() + 543}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {selectedDayBookings.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">ไม่มีการจองในวันนี้</p>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">{selectedDayBookings.length} รายการ</p>
+              {selectedDayBookings.map((r) => (
+                <div
+                  key={r.id}
+                  className={cn(
+                    "rounded-lg border p-3 space-y-1.5",
+                    r.status === "pending"
+                      ? "border-dashed border-muted-foreground/50 bg-muted/30"
+                      : "border-border"
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-xs",
+                          r.status === "pending"
+                            ? ""
+                            : ROOM_COLORS_LIGHT[r.room]
+                        )}
+                      >
+                        {r.room}
+                      </Badge>
+                      {r.status === "pending" && (
+                        <Badge variant="secondary" className="text-[10px]">รออนุมัติ</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      {r.startTime}–{r.endTime} น.
+                    </div>
+                  </div>
+                  <p className="text-sm font-medium leading-snug">{r.topic}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <MapPin className="h-3 w-3" />
+                      {r.department}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <User className="h-3 w-3" />
+                      {r.bookerName}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      </div>
     </div>
   );
 }

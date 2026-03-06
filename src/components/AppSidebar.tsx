@@ -1,4 +1,4 @@
-import { CalendarDays, ClipboardEdit, LayoutDashboard } from "lucide-react";
+import { CalendarDays, ClipboardEdit, LayoutDashboard, ListChecks, BarChart3 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -18,9 +18,19 @@ const navItems = [
     icon: ClipboardEdit,
   },
   {
-    title: "แดชบอร์ดผู้ดูแล",
+    title: "แดชบอร์ดสำหรับอนุมัติ",
     url: "/admin",
     icon: LayoutDashboard,
+  },
+  {
+    title: "จัดการการจอง",
+    url: "/admin/manage",
+    icon: ListChecks,
+  },
+  {
+    title: "รายงานการจองห้องประชุม",
+    url: "/admin/reports",
+    icon: BarChart3,
   },
 ];
 

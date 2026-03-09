@@ -5,12 +5,12 @@ import {
   addMonths, getDay, isSameMonth,
 } from "date-fns";
 import { th } from "date-fns/locale";
-import { Check, X, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Clock, MapPin, User } from "lucide-react";
+import { Check, X, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Clock, MapPin, User, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROOMS, ROOM_COLORS, ROOM_COLORS_LIGHT } from "@/lib/mockData";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
-import { collection, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, getDocs } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,6 +79,25 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleExportBackup = async () => {
+    try {
+      const snap = await getDocs(collection(db, "reservations"));
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `backup_reservations_${format(new Date(), "yyyy-MM-dd")}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "สำรองข้อมูลสำเร็จ", description: `ดาวน์โหลดไฟล์ JSON ${data.length} รายการ` });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "สำรองข้อมูลไม่สำเร็จ", variant: "destructive" });
+    }
+  };
+
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   // รวมทั้ง approved และ pending ไว้แสดงในปฏิทิน
@@ -131,10 +150,23 @@ export default function AdminDashboard() {
       {/* Pending Approvals */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">รายการรออนุมัติ</CardTitle>
-          <CardDescription>
-            {pendingReservations.length} รายการที่รอดำเนินการ (หน้า {pendingPage}/{totalPendingPages})
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl">รายการรออนุมัติ</CardTitle>
+              <CardDescription>
+                {pendingReservations.length} รายการที่รอดำเนินการ (หน้า {pendingPage}/{totalPendingPages})
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50"
+              onClick={handleExportBackup}
+            >
+              <Download className="h-4 w-4" />
+              Backup (JSON)
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {pendingReservations.length === 0 ? (

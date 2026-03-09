@@ -20,6 +20,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { sendTelegramNotification } from "@/lib/telegram";
 
 // Generate unique 5-character tracking number (uppercase + digits, no ambiguous chars)
 const TRACKING_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid confusion
@@ -165,6 +166,13 @@ export default function ReservationForm() {
       };
 
       await addDoc(collection(db, "reservations"), formDataWithTracking);
+      // โค้ดเดิมที่คุณมีอยู่แล้ว (อาจจะหน้าตาประมาณนี้)
+      // await addDoc(collection(db, "reservations"), dataToSave);
+      // await generateReservationPDF(formData);
+
+      // +++ วางโค้ดนี้เพิ่มเข้าไปเพื่อส่ง Telegram +++
+      await sendTelegramNotification(formDataWithTracking);
+
 
       toast({
         title: "บันทึกการจองสำเร็จ!",

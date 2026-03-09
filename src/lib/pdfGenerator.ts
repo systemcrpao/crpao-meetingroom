@@ -37,7 +37,36 @@ export const generateReservationPDF = async (formData: any) => {
 
     // ตัวอย่างการวางตำแหน่ง (สมมติพิกัด)
     drawText(formData.department || '', 115, 664); // สำนัก/กอง
-    drawText(formData.topic || '', 50, 633);      // โครงการ/เรื่อง
+    // drawText(formData.topic || '', 50, 633);      // โครงการ/เรื่อง
+    
+    // --- ระบบตัดคำภาษาไทยแบบเป็นคำๆ สำหรับ ชื่อโครงการ/เรื่อง ---
+    const topicText = formData.topic || '';
+    const maxChars = 45;   // จำนวนตัวอักษรสูงสุดต่อ 1 บรรทัด
+    const lineHeight = 14; // ระยะห่างระหว่างบรรทัด
+    let currentY = 633;    // จุด Y เริ่มต้นของบรรทัดแรก
+
+    // 1. เรียกใช้พจนานุกรมตัดคำภาษาไทย
+    const segmenter = new (Intl as any).Segmenter('th-TH', { granularity: 'word' });
+    const segments = segmenter.segment(topicText);
+
+    let currentLine = '';
+
+    // 2. วนลูปเช็กทีละคำ
+    for (const { segment } of segments) {
+      if (currentLine.length + segment.length > maxChars) {
+        drawText(currentLine, 50, currentY); // X = 50 วาดบรรทัดปัจจุบัน
+        currentY -= lineHeight;              // ขยับ Y ลงมาบรรทัดใหม่
+        currentLine = segment;               // เอาคำที่ล้นไปตั้งต้นเป็นบรรทัดใหม่
+      } else {
+        currentLine += segment;
+      }
+    }
+
+    // 3. วาดข้อความที่เหลือในบรรทัดสุดท้าย (ถ้ามี)
+    if (currentLine.trim().length > 0) {
+      drawText(currentLine, 50, currentY);   // X = 50
+    }
+    // ----------------------------------------------------
 
     // วัน เดือน ปี ปัจจุบัน (วันที่พิมพ์แบบฟอร์ม)
     {

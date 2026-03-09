@@ -13,7 +13,7 @@ export interface Reservation {
 
 export const DEPARTMENTS = [
   "สำนักปลัดองค์การบริหารส่วนจังหวัด",
-  "กองช่าง",
+  "สำนักช่าง",
   "สำนักการศึกษา ศาสนาและวัฒนธรรม",
   "กองคลัง",
   "กองยุทธศาสตร์และงบประมาณ",
@@ -93,7 +93,7 @@ export const INITIAL_RESERVATIONS: Reservation[] = [
   },
   {
     id: "2",
-    department: "กองช่าง",
+    department: "สำนักช่าง",
     topic: "ประชุมแผนพัฒนาโครงสร้างพื้นฐาน",
     date: formatDate(today),
     startTime: "13:00",

@@ -16,7 +16,7 @@ export function UserLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
       <header className="h-14 flex items-center justify-between border-b bg-card px-4 md:px-6 shadow-sm">
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <CalendarDays className="h-4 w-4" />
           </div>
@@ -24,7 +24,7 @@ export function UserLayout({ children }: { children: React.ReactNode }) {
           <span className="hidden md:inline text-xs text-muted-foreground ml-1">
             องค์การบริหารส่วนจังหวัดเชียงราย
           </span>
-        </div>
+        </Link>
 
         <div className="flex items-center gap-2">
           {user ? (

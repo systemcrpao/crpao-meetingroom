@@ -245,7 +245,7 @@ export default function ReservationForm() {
           : firstDateStr,
         trackingNumber,
       };
-      await sendTelegramNotification(telegramData);
+      const telegramResult = await sendTelegramNotification(telegramData);
 
       toast({
         title: "บันทึกการจองสำเร็จ!",
@@ -253,6 +253,15 @@ export default function ReservationForm() {
           ? `จองห้อง ${room} จำนวน ${datesToBook.length} วัน หมายเลขติดตาม: ${trackingNumber}`
           : `จองห้อง ${room} หมายเลขติดตาม: ${trackingNumber}`,
       });
+
+      if (!telegramResult.ok) {
+        toast({
+          title: "แจ้งเตือน Telegram ไม่สำเร็จ",
+          description:
+            "บันทึกการจองแล้ว แต่ยังไม่ส่งข้อความเข้ากลุ่ม — ตรวจว่าเชิญบอทเข้ากลุ่มและ deploy Firebase Functions แล้ว",
+          variant: "destructive",
+        });
+      }
 
       // Save form data for success screen
       setSavedTrackingNumber(trackingNumber);

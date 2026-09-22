@@ -1,74 +1,88 @@
 /** ส่งจากเบราว์เซอร์ — ค่า VITE_TELEGRAM_* ฝังตอน build (GitHub Actions หรือ .env.local) */
 
 function normalizeEnv(value: string): string {
-  return value.trim().replace(/^["']|["']$/g, "");
+  return value
+    .replace(/\uFEFF/g, "")
+    .trim()
+    .replace(/^["']|["']$/g, "");
 }
 
 const TELEGRAM_BOT_TOKEN = normalizeEnv(import.meta.env.VITE_TELEGRAM_BOT_TOKEN ?? "");
-const TELEGRAM_CHAT_ID_RAW = normalizeEnv(import.meta.env.VITE_TELEGRAM_CHAT_ID ?? "");
+const TELEGRAM_CHAT_ID = normalizeEnv(import.meta.env.VITE_TELEGRAM_CHAT_ID ?? "").replace(
+  /\s/g,
+  "",
+);
 
-function escHtml(value: unknown): string {
-  return String(value ?? "-")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+function buildPlainMessage(formData: Record<string, unknown>): string {
+  return [
+    "📢 มีการขอจองห้องประชุมใหม่!",
+    `ห้องประชุม: ${formData.room ?? "-"}`,
+    `วันที่: ${formData.date ?? "-"}`,
+    `เวลา: ${formData.startTime ?? "-"} น. ถึง ${formData.endTime ?? "-"} น.`,
+    `ผู้จอง: ${formData.bookerName ?? "-"} (${formData.department ?? "-"})`,
+    `เบอร์ติดต่อ: ${formData.bookerPhone ?? "-"}`,
+    `เรื่อง: ${formData.topic ?? "-"}`,
+    `Tracking ID: ${formData.trackingNumber ?? "-"}`,
+  ].join("\n");
 }
 
-function parseChatId(raw: string): string | number {
-  const t = raw.trim();
-  if (/^-?\d+$/.test(t)) {
-    const n = Number(t);
-    if (Number.isSafeInteger(n)) return n;
+async function fetchTelegramGet(
+  token: string,
+  chatId: string,
+  text: string,
+): Promise<{ ok: boolean; body: string }> {
+  const params = new URLSearchParams({
+    chat_id: chatId,
+    text: text.slice(0, 4096),
+  });
+  const url = `https://api.telegram.org/bot${token}/sendMessage?${params.toString()}`;
+  const response = await fetch(url, { method: "GET" });
+  const body = await response.text();
+  return { ok: response.ok, body };
+}
+
+async function logBotIdentity(token: string): Promise<void> {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+    const json = await res.json();
+    if (json?.ok && json?.result?.username) {
+      console.error(
+        "Telegram bot ใน build นี้: @%s — ต้องเป็นบอทที่อยู่ในกลุ่ม (เช่น reportCrpaoMeeting_bot)",
+        json.result.username,
+      );
+    }
+  } catch {
+    /* ignore */
   }
-  return t;
-}
-
-function buildMessage(formData: Record<string, unknown>): string {
-  return `
-📢 <b>มีการขอจองห้องประชุมใหม่!</b>
-🏢 <b>ห้องประชุม :</b> ${escHtml(formData.room)}
-📅 <b>วันที่ :</b> ${escHtml(formData.date)}
-⏰ <b>เวลา :</b> ${escHtml(formData.startTime)} น. ถึง ${escHtml(formData.endTime)} น.
-👤 <b>ผู้จอง :</b> ${escHtml(formData.bookerName)} (${escHtml(formData.department)})
-📞 <b>เบอร์ติดต่อ :</b> ${escHtml(formData.bookerPhone)}
-📝 <b>เรื่อง :</b> ${escHtml(formData.topic)}
-🔍 <b>Tracking ID :</b> ${escHtml(formData.trackingNumber)}
-  `.trim();
 }
 
 export const sendTelegramNotification = async (
   formData: Record<string, unknown>,
 ): Promise<{ ok: boolean; error?: string }> => {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID_RAW) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     return {
       ok: false,
       error: "ไม่ได้ตั้ง VITE_TELEGRAM_BOT_TOKEN / VITE_TELEGRAM_CHAT_ID ตอน build",
     };
   }
 
-  const message = buildMessage(formData);
-  const chatId = parseChatId(TELEGRAM_CHAT_ID_RAW);
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  if (!/^-?\d+$/.test(TELEGRAM_CHAT_ID)) {
+    return { ok: false, error: `รูปแบบ chat_id ไม่ถูกต้อง: ${TELEGRAM_CHAT_ID}` };
+  }
+
+  const message = buildPlainMessage(formData);
 
   try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: message,
-        parse_mode: "HTML",
-      }),
-    });
-    const body = await response.text();
+    const { ok, body } = await fetchTelegramGet(
+      TELEGRAM_BOT_TOKEN,
+      TELEGRAM_CHAT_ID,
+      message,
+    );
 
-    if (!response.ok) {
+    if (!ok) {
       console.error("ส่ง Telegram ไม่สำเร็จ:", body);
-      console.error(
-        "chat_id ที่ใช้ตอน build:",
-        TELEGRAM_CHAT_ID_RAW,
-        "— กลุ่มที่ถูกคือ -519612591; แก้ GitHub Secret แล้ว Run workflow deploy ใหม่",
-      );
+      console.error("chat_id ที่ใช้:", TELEGRAM_CHAT_ID);
+      await logBotIdentity(TELEGRAM_BOT_TOKEN);
       return { ok: false, error: body };
     }
     return { ok: true };

@@ -1,7 +1,11 @@
 /** ส่งจากเบราว์เซอร์ — ค่า VITE_TELEGRAM_* ฝังตอน build (GitHub Actions หรือ .env.local) */
 
-const TELEGRAM_BOT_TOKEN = (import.meta.env.VITE_TELEGRAM_BOT_TOKEN ?? "").trim();
-const TELEGRAM_CHAT_ID_RAW = (import.meta.env.VITE_TELEGRAM_CHAT_ID ?? "").trim();
+function normalizeEnv(value: string): string {
+  return value.trim().replace(/^["']|["']$/g, "");
+}
+
+const TELEGRAM_BOT_TOKEN = normalizeEnv(import.meta.env.VITE_TELEGRAM_BOT_TOKEN ?? "");
+const TELEGRAM_CHAT_ID_RAW = normalizeEnv(import.meta.env.VITE_TELEGRAM_CHAT_ID ?? "");
 
 function escHtml(value: unknown): string {
   return String(value ?? "-")
@@ -17,14 +21,6 @@ function parseChatId(raw: string): string | number {
     if (Number.isSafeInteger(n)) return n;
   }
   return t;
-}
-
-function supergroupChatIdVariant(chatId: number): number | null {
-  if (chatId >= 0 || String(chatId).startsWith("-100")) return null;
-  const digits = String(Math.abs(chatId));
-  if (digits.length < 9) return null;
-  const alt = Number(`-100${digits}`);
-  return Number.isSafeInteger(alt) ? alt : null;
 }
 
 function buildMessage(formData: Record<string, unknown>): string {
@@ -51,11 +47,11 @@ export const sendTelegramNotification = async (
   }
 
   const message = buildMessage(formData);
-  let chatId: string | number = parseChatId(TELEGRAM_CHAT_ID_RAW);
+  const chatId = parseChatId(TELEGRAM_CHAT_ID_RAW);
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
 
   try {
-    let response = await fetch(url, {
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -64,26 +60,15 @@ export const sendTelegramNotification = async (
         parse_mode: "HTML",
       }),
     });
-    let body = await response.text();
-
-    if (!response.ok && body.includes("chat not found") && typeof chatId === "number") {
-      const alt = supergroupChatIdVariant(chatId);
-      if (alt !== null) {
-        response = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: alt,
-            text: message,
-            parse_mode: "HTML",
-          }),
-        });
-        body = await response.text();
-      }
-    }
+    const body = await response.text();
 
     if (!response.ok) {
       console.error("ส่ง Telegram ไม่สำเร็จ:", body);
+      console.error(
+        "chat_id ที่ใช้ตอน build:",
+        TELEGRAM_CHAT_ID_RAW,
+        "— กลุ่มที่ถูกคือ -519612591; แก้ GitHub Secret แล้ว Run workflow deploy ใหม่",
+      );
       return { ok: false, error: body };
     }
     return { ok: true };

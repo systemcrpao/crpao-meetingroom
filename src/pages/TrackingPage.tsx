@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { Search, FileText, Clock, CheckCircle2, CircleDot, Circle, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROOM_COLORS_LIGHT } from "@/lib/mockData";
+import { resolveRoom, roomColorClass, getRoomLabel } from "@/lib/mockData";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { generateReservationPDF } from "@/lib/pdfGenerator";
@@ -219,8 +219,8 @@ export default function TrackingPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">ห้องประชุม</p>
-                    <Badge variant="outline" className={cn("text-xs mt-0.5", ROOM_COLORS_LIGHT[reservation.room])}>
-                      {reservation.room}
+                    <Badge variant="outline" className={cn("text-xs mt-0.5", roomColorClass(reservation.room, true))}>
+                      {getRoomLabel(reservation.room)}
                     </Badge>
                   </div>
                   <div>

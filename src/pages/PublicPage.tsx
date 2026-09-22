@@ -10,7 +10,7 @@ import {
   Clock, MapPin, User, Building,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROOMS, ROOM_COLORS, ROOM_COLORS_LIGHT } from "@/lib/mockData";
+import { ROOMS, ROOM_COLORS, resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
 
@@ -46,7 +46,7 @@ export default function PublicPage() {
   }, []);
 
   const filtered = useMemo(() =>
-    roomFilter === "all" ? reservations : reservations.filter((r) => r.room === roomFilter),
+    roomFilter === "all" ? reservations : reservations.filter((r) => roomMatchesFilter(r.room, roomFilter)),
     [reservations, roomFilter]
   );
 
@@ -212,10 +212,10 @@ export default function PublicPage() {
                                 "rounded px-1 py-0.5 text-[10px] leading-tight truncate pointer-events-none",
                                 r.status === "pending"
                                   ? "bg-muted-foreground/25 text-foreground border border-dashed border-muted-foreground/50"
-                                  : cn("text-white", ROOM_COLORS[r.room])
+                                  : cn("text-white", roomColorClass(r.room))
                               )}
                             >
-                              {r.status === "pending" && "⧖ "}{r.startTime} {r.room}
+                              {r.status === "pending" && "⧖ "}{r.startTime} {resolveRoom(r.room)}
                             </div>
                           ))}
                           {bookings.length > 3 && (
@@ -316,16 +316,16 @@ export default function PublicPage() {
                                             "cursor-pointer group/bar relative",
                                             isPending
                                               ? "bg-muted-foreground/25 text-foreground border border-dashed border-muted-foreground/50"
-                                              : cn("text-white", ROOM_COLORS[r.room])
+                                              : cn("text-white", roomColorClass(r.room))
                                           )}
                                           style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                                         >
-                                          <span className="truncate">{isPending && "⧖ "}{r.room} {r.startTime}–{r.endTime}</span>
+                                          <span className="truncate">{isPending && "⧖ "}{resolveRoom(r.room)} {r.startTime}–{r.endTime}</span>
                                           {/* Tooltip on hover */}
                                           <div className="hidden group-hover/bar:block absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-50 w-56 p-2 rounded-lg shadow-lg border bg-popover text-popover-foreground text-[11px] pointer-events-none">
                                             <div className="font-semibold text-xs mb-1 truncate">{r.topic}</div>
                                             <div className="flex items-center gap-1 text-muted-foreground"><Clock className="h-3 w-3" /> {r.startTime}–{r.endTime} น.</div>
-                                            <div className="flex items-center gap-1 text-muted-foreground mt-0.5"><MapPin className="h-3 w-3" /> {r.room}</div>
+                                            <div className="flex items-center gap-1 text-muted-foreground mt-0.5"><MapPin className="h-3 w-3" /> {resolveRoom(r.room)}</div>
                                             <div className="flex items-center gap-1 text-muted-foreground mt-0.5"><User className="h-3 w-3" /> {r.bookerName}</div>
                                             <div className="flex items-center gap-1 text-muted-foreground mt-0.5"><Building className="h-3 w-3" /> {r.department}</div>
                                           </div>
@@ -388,8 +388,8 @@ export default function PublicPage() {
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <MapPin className="h-3 w-3 flex-shrink-0" />
-                            <Badge variant="outline" className={cn("text-[10px] h-4 px-1.5", ROOM_COLORS_LIGHT[r.room])}>
-                              {r.room}
+                            <Badge variant="outline" className={cn("text-[10px] h-4 px-1.5", roomColorClass(r.room, true))}>
+                              {resolveRoom(r.room)}
                             </Badge>
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

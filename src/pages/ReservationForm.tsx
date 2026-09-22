@@ -1,13 +1,13 @@
 import { useState, useMemo } from "react";
-import { format, startOfDay } from "date-fns";
+import { format, startOfDay, eachDayOfInterval } from "date-fns";
 import { th } from "date-fns/locale";
 import { CalendarIcon, Printer, Building2, BookOpen, Clock3, DoorOpen, MonitorSpeaker, UserCircle2, Users, CheckCircle2, Copy, FileSearch } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DEPARTMENTS, ROOMS, EQUIPMENT_OPTIONS, TIME_SLOTS } from "@/lib/mockData";
+import { DEPARTMENTS, DEPARTMENT_OTHER, ROOMS, EQUIPMENT_OPTIONS, TIME_SLOTS } from "@/lib/mockData";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, getDocs, query, where } from "firebase/firestore";
-import { generateReservationPDF } from "@/lib/pdfGenerator";
+import { generateReservationPDF, formatBookingPeriod } from "@/lib/pdfGenerator";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { sendTelegramNotification } from "@/lib/telegram";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+const ROOM_THAMMARAP_ARUN = "ธรรมรับอรุณ";
 
 // Generate unique 5-character tracking number (uppercase + digits, no ambiguous chars)
 const TRACKING_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid confusion
@@ -51,12 +62,17 @@ export default function ReservationForm() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [department, setDepartment] = useState("");
+  const [departmentOther, setDepartmentOther] = useState("");
   const [topic, setTopic] = useState("");
   const [date, setDate] = useState<Date>();
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [isMultiDay, setIsMultiDay] = useState(false);
+  const [endDate, setEndDate] = useState<Date>();
+  const [endCalendarOpen, setEndCalendarOpen] = useState(false);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [room, setRoom] = useState("");
+  const [thammarapArunNoticeOpen, setThammarapArunNoticeOpen] = useState(false);
   const [participants, setParticipants] = useState("");
   const [equipment, setEquipment] = useState<string[]>([]);
   const [bookerName, setBookerName] = useState("");
@@ -85,6 +101,13 @@ export default function ReservationForm() {
     );
   };
 
+  const handleRoomChange = (value: string) => {
+    setRoom(value);
+    if (value === ROOM_THAMMARAP_ARUN) {
+      setThammarapArunNoticeOpen(true);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -97,10 +120,45 @@ export default function ReservationForm() {
       return;
     }
 
-    const formData = {
-      department,
+    if (department === DEPARTMENT_OTHER && !departmentOther.trim()) {
+      toast({
+        title: "กรุณาระบุชื่อหน่วยงาน",
+        description: "เมื่อเลือกหน่วยงานอื่น ๆ กรุณากรอกชื่อหน่วยงานในช่องที่แสดง",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const resolvedDepartment =
+      department === DEPARTMENT_OTHER ? departmentOther.trim() : department;
+
+    if (isMultiDay && !endDate) {
+      toast({
+        title: "กรุณาเลือกวันที่สิ้นสุด",
+        description: "เมื่อเลือกจองหลายวัน กรุณาระบุวันที่สิ้นสุด",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isMultiDay && endDate && endDate <= date) {
+      toast({
+        title: "วันที่สิ้นสุดไม่ถูกต้อง",
+        description: "วันที่สิ้นสุดต้องมาหลังวันที่เริ่มต้น",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Build list of dates to book
+    const datesToBook = isMultiDay && endDate
+      ? eachDayOfInterval({ start: date, end: endDate })
+      : [date];
+
+    const baseFormData = {
+      department: resolvedDepartment,
+      departmentOther: department === DEPARTMENT_OTHER ? departmentOther.trim() : "",
       topic,
-      date: format(date, "yyyy-MM-dd"),
       startTime,
       endTime,
       room,
@@ -110,7 +168,6 @@ export default function ReservationForm() {
       bookerPosition,
       bookerPhone,
       status: "pending",
-      createdAt: serverTimestamp(),
     };
 
     // --- ตรวจสอบการจองซ้ำ (overlap check) ---
@@ -132,56 +189,80 @@ export default function ReservationForm() {
 
     setIsSubmitting(true);
     try {
-      // Query รายการจองห้องเดียวกัน วันเดียวกัน ที่ยังไม่เคยปฏิเสธ
-      const conflictSnap = await getDocs(
-        query(
-          collection(db, "reservations"),
-          where("room", "==", room),
-          where("date", "==", formData.date),
-          where("status", "in", ["pending", "approved"])
-        )
-      );
-      const hasOverlap = conflictSnap.docs.some((d) => {
-        const r = d.data();
-        const rs = toMinutes(r.startTime);
-        const re = toMinutes(r.endTime);
-        return newStart < re && newEnd > rs; // interval overlap formula
-      });
-      if (hasOverlap) {
-        toast({
-          title: "ห้องประชุมถูกจองแล้วในช่วงเวลานี้",
-          description: `ห้อง ${room} มีการจองที่คาบเกี่ยวกันในวันดังกล่าว กรุณาเลือกเวลาอื่นหรือห้องอื่น`,
-          variant: "destructive",
+      // Check overlap for ALL dates
+      for (const bookDate of datesToBook) {
+        const dateStr = format(bookDate, "yyyy-MM-dd");
+        const conflictSnap = await getDocs(
+          query(
+            collection(db, "reservations"),
+            where("room", "==", room),
+            where("date", "==", dateStr),
+            where("status", "in", ["pending", "approved"])
+          )
+        );
+        const hasOverlap = conflictSnap.docs.some((d) => {
+          const r = d.data();
+          const rs = toMinutes(r.startTime);
+          const re = toMinutes(r.endTime);
+          return newStart < re && newEnd > rs;
         });
-        setIsSubmitting(false);
-        return;
+        if (hasOverlap) {
+          const thaiDate = `${format(bookDate, "d MMMM", { locale: th })} ${bookDate.getFullYear() + 543}`;
+          toast({
+            title: "ห้องประชุมถูกจองแล้วในช่วงเวลานี้",
+            description: `ห้อง ${room} มีการจองที่คาบเกี่ยวกันในวันที่ ${thaiDate} กรุณาเลือกเวลาอื่นหรือห้องอื่น`,
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        }
       }
 
-      // Generate unique tracking number first
+      // Generate unique tracking number (shared across all days)
       const trackingNumber = await getUniqueTrackingNumber();
 
-      const formDataWithTracking = {
-        ...formData,
+      // Create one reservation per day with same tracking number
+      const firstDateStr = format(datesToBook[0], "yyyy-MM-dd");
+      let firstFormData: any = null;
+
+      for (const bookDate of datesToBook) {
+        const dateStr = format(bookDate, "yyyy-MM-dd");
+        const docData = {
+          ...baseFormData,
+          date: dateStr,
+          trackingNumber,
+          createdAt: serverTimestamp(),
+        };
+        await addDoc(collection(db, "reservations"), docData);
+        if (!firstFormData) firstFormData = docData;
+      }
+
+      // Send Telegram once with summary
+      const telegramData = {
+        ...baseFormData,
+        date: datesToBook.length > 1
+          ? `${format(datesToBook[0], "d MMM", { locale: th })} - ${format(datesToBook[datesToBook.length - 1], "d MMM", { locale: th })} ${datesToBook[datesToBook.length - 1].getFullYear() + 543} (${datesToBook.length} วัน)`
+          : firstDateStr,
         trackingNumber,
       };
-
-      await addDoc(collection(db, "reservations"), formDataWithTracking);
-      // โค้ดเดิมที่คุณมีอยู่แล้ว (อาจจะหน้าตาประมาณนี้)
-      // await addDoc(collection(db, "reservations"), dataToSave);
-      // await generateReservationPDF(formData);
-
-      // +++ วางโค้ดนี้เพิ่มเข้าไปเพื่อส่ง Telegram +++
-      await sendTelegramNotification(formDataWithTracking);
-
+      await sendTelegramNotification(telegramData);
 
       toast({
         title: "บันทึกการจองสำเร็จ!",
-        description: `จองห้อง ${room} หมายเลขติดตาม: ${trackingNumber}`,
+        description: datesToBook.length > 1
+          ? `จองห้อง ${room} จำนวน ${datesToBook.length} วัน หมายเลขติดตาม: ${trackingNumber}`
+          : `จองห้อง ${room} หมายเลขติดตาม: ${trackingNumber}`,
       });
 
       // Save form data for success screen
       setSavedTrackingNumber(trackingNumber);
-      setSavedFormData(formDataWithTracking);
+      const allDateStrs = datesToBook.map((d) => format(d, "yyyy-MM-dd"));
+      setSavedFormData({
+        ...firstFormData,
+        totalDays: datesToBook.length,
+        dateEnd: datesToBook.length > 1 ? allDateStrs[allDateStrs.length - 1] : undefined,
+        allDates: allDateStrs,
+      });
       setSubmitted(true);
     } catch (error) {
       console.error("Error saving reservation:", error);
@@ -206,6 +287,7 @@ export default function ReservationForm() {
     setSavedTrackingNumber("");
     setSavedFormData(null);
     setDepartment("");
+    setDepartmentOther("");
     setTopic("");
     setDate(undefined);
     setStartTime("");
@@ -259,9 +341,11 @@ export default function ReservationForm() {
               <div>
                 <p className="text-xs text-muted-foreground">วันที่</p>
                 <p className="font-medium">
-                  {savedFormData?.date && date
-                    ? `${format(date, "d MMMM", { locale: th })} ${date.getFullYear() + 543}`
-                    : savedFormData?.date}
+                  {savedFormData?.totalDays > 1
+                    ? formatBookingPeriod(savedFormData)
+                    : savedFormData?.date && date
+                      ? `${format(date, "d MMMM", { locale: th })} ${date.getFullYear() + 543}`
+                      : savedFormData?.date}
                 </p>
               </div>
               <div>
@@ -332,7 +416,13 @@ export default function ReservationForm() {
               <Label className="text-xs font-medium flex items-center gap-1.5">
                 <Building2 className="h-3.5 w-3.5 text-indigo-400" /> สังกัด / หน่วยงาน
               </Label>
-              <Select value={department} onValueChange={setDepartment}>
+              <Select
+                value={department}
+                onValueChange={(value) => {
+                  setDepartment(value);
+                  if (value !== DEPARTMENT_OTHER) setDepartmentOther("");
+                }}
+              >
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="เลือกหน่วยงาน" /></SelectTrigger>
                 <SelectContent>
                   {DEPARTMENTS.map((d) => (
@@ -340,6 +430,14 @@ export default function ReservationForm() {
                   ))}
                 </SelectContent>
               </Select>
+              {department === DEPARTMENT_OTHER && (
+                <Input
+                  className="h-9 text-sm mt-1.5"
+                  placeholder="ระบุชื่อหน่วยงาน / สังกัด"
+                  value={departmentOther}
+                  onChange={(e) => setDepartmentOther(e.target.value)}
+                />
+              )}
             </div>
 
             {/* Topic */}
@@ -353,38 +451,117 @@ export default function ReservationForm() {
             <Separator className="my-1" />
 
             {/* ── วันและเวลา ── */}
-            <div className="flex items-center gap-2 mb-1">
-              <div className="h-4 w-1 rounded-full bg-emerald-500" />
-              <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wide">วันและเวลา</span>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-1 rounded-full bg-emerald-500" />
+                <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wide">วันและเวลา</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="multiday"
+                  checked={isMultiDay}
+                  onCheckedChange={(checked) => {
+                    setIsMultiDay(!!checked);
+                    if (!checked) setEndDate(undefined);
+                  }}
+                />
+                <label htmlFor="multiday" className="text-xs font-medium cursor-pointer select-none">
+                  จองต่อเนื่องหลายวัน
+                </label>
+              </div>
             </div>
 
-            {/* Date */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium flex items-center gap-1.5">
-                <CalendarIcon className="h-3.5 w-3.5 text-emerald-500" /> วันที่ประชุม
-              </Label>
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn("w-full h-9 justify-start text-left text-sm font-normal", !date && "text-muted-foreground")}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4 text-emerald-500" />
-                    {date ? `${format(date, "d MMMM", { locale: th })} ${date.getFullYear() + 543}` : "เลือกวันที่"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(d) => { setDate(d); setCalendarOpen(false); }}
-                    disabled={(d) => d < today}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+            {/* Date picker(s) */}
+            {!isMultiDay ? (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium flex items-center gap-1.5">
+                  <CalendarIcon className="h-3.5 w-3.5 text-emerald-500" /> วันที่ประชุม
+                </Label>
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn("w-full h-9 justify-start text-left text-sm font-normal", !date && "text-muted-foreground")}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4 text-emerald-500" />
+                      {date ? `${format(date, "d MMMM", { locale: th })} ${date.getFullYear() + 543}` : "เลือกวันที่"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={(d) => { setDate(d); setCalendarOpen(false); }}
+                      disabled={(d) => d < today}
+                      locale={th}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <CalendarIcon className="h-3.5 w-3.5 text-emerald-500" /> วันที่เริ่มต้น
+                  </Label>
+                  <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn("w-full h-9 justify-start text-left text-sm font-normal", !date && "text-muted-foreground")}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4 text-emerald-500" />
+                        {date ? `${format(date, "d MMM", { locale: th })} ${date.getFullYear() + 543}` : "เลือกวันที่"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={(d) => {
+                          setDate(d);
+                          setCalendarOpen(false);
+                          if (endDate && d && endDate <= d) setEndDate(undefined);
+                        }}
+                        disabled={(d) => d < today}
+                        locale={th}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium flex items-center gap-1.5">
+                    <CalendarIcon className="h-3.5 w-3.5 text-emerald-500" /> วันที่สิ้นสุด
+                  </Label>
+                  <Popover open={endCalendarOpen} onOpenChange={setEndCalendarOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn("w-full h-9 justify-start text-left text-sm font-normal", !endDate && "text-muted-foreground")}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4 text-emerald-500" />
+                        {endDate ? `${format(endDate, "d MMM", { locale: th })} ${endDate.getFullYear() + 543}` : "เลือกวันที่"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={endDate}
+                        onSelect={(d) => { setEndDate(d); setEndCalendarOpen(false); }}
+                        disabled={(d) => d < today || (date ? d <= date : false)}
+                        locale={th}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+            )}
 
             {/* Time */}
             <div className="grid grid-cols-2 gap-3">
@@ -429,7 +606,7 @@ export default function ReservationForm() {
               <Label className="text-xs font-medium flex items-center gap-1.5">
                 <DoorOpen className="h-3.5 w-3.5 text-orange-500" /> ห้องประชุม
               </Label>
-              <Select value={room} onValueChange={setRoom}>
+              <Select value={room} onValueChange={handleRoomChange}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="เลือกห้องประชุม" /></SelectTrigger>
                 <SelectContent>
                   {ROOMS.map((r) => (
@@ -504,6 +681,21 @@ export default function ReservationForm() {
           </form>
         </CardContent>
       </Card>
+
+      <AlertDialog open={thammarapArunNoticeOpen} onOpenChange={setThammarapArunNoticeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>แจ้งเตือนการจองห้องประชุมธรรมรับอรุณ</AlertDialogTitle>
+            <AlertDialogDescription className="text-foreground/90 leading-relaxed">
+              สำหรับการขอใช้ห้องประชุมธรรมรับอรุณ โปรดประสานงานกับหน้าห้องนายก
+              องค์การบริหารส่วนจังหวัดเชียงราย ก่อนดำเนินการจองทุกครั้ง
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>ตกลง</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

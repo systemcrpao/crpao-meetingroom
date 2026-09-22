@@ -1,73 +1,86 @@
-# Welcome to your Lovable project
+# ระบบจองห้องประชุม — องค์การบริหารส่วนจังหวัดเชียงราย
 
-## Project info
+เว็บแอปสำหรับจองห้องประชุม ตรวจสอบปฏิทิน ติดตามสถานะ และบริหารจัดการการอนุมัติ (ฝั่งเจ้าหน้าที่)
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## คุณสมบัติหลัก
 
-## How can I edit this code?
+- **หน้าสาธารณะ** — ปฏิทินการใช้ห้อง (real-time), ฟอร์มจอง, พิมพ์แบบฟอร์ม HTML, หมายเลขติดตาม 5 หลัก
+- **ติดตามสถานะ** — ค้นหาด้วย tracking number
+- **ผู้ดูแล** — อนุมัติ/ปฏิเสธ, จัดการรายการ, รายงานสถิติ, สำรองข้อมูล JSON
+- **แจ้งเตือน Telegram** — เมื่อมีการจองใหม่ (ตั้งค่าผ่าน environment)
 
-There are several ways of editing your application.
+## เทคโนโลยี
 
-**Use Lovable**
+Vite · React 18 · TypeScript · React Router · Firebase (Firestore + Auth) · shadcn/ui · Tailwind CSS
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## เริ่มต้นพัฒนา
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm install
+cp .env.example .env.local   # Windows: copy .env.example .env.local
+# แก้ไข .env.local ให้ครบค่า Firebase และ Telegram (ถ้าต้องการแจ้งเตือน)
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+เซิร์ฟเวอร์พัฒนา: `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## ตัวแปรสภาพแวดล้อม
 
-**Use GitHub Codespaces**
+| ตัวแปร | บังคับ | คำอธิบาย |
+|--------|--------|----------|
+| `VITE_FIREBASE_*` | ใช่ | ค่าจาก Firebase Console → Project settings → Web app |
+| `VITE_TELEGRAM_BOT_TOKEN` | ไม่ | Bot token สำหรับแจ้งเตือน |
+| `VITE_TELEGRAM_CHAT_ID` | ไม่ | Chat/Group ID |
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+รายละเอียดฟิลด์ดูใน `.env.example`
 
-## What technologies are used for this project?
+## คำสั่ง
 
-This project is built with:
+| คำสั่ง | ความหมาย |
+|--------|----------|
+| `npm run dev` | รันโหมดพัฒนา |
+| `npm run build` | สร้างไฟล์ production ใน `dist/` |
+| `npm run preview` | ทดสอบ build ในเครื่อง |
+| `npm run lint` | ตรวจ ESLint |
+| `npm test` | รัน Vitest |
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Deploy (Static hosting)
 
-## How can I deploy this project?
+แอปเป็น SPA สแตติก — build แล้ว deploy โฟลเดอร์ `dist/` ไปยัง Firebase Hosting, Netlify, Vercel หรือเว็บเซิร์ฟเวอร์ที่รองรับ fallback ไป `index.html`
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+### ตัวอย่าง Firebase Hosting
 
-## Can I connect a custom domain to my Lovable project?
+1. ติดตั้ง CLI: `npm i -g firebase-tools`
+2. `firebase login` และ `firebase init hosting` (public directory = `dist`, SPA = yes)
+3. ตั้งค่า env บน CI หรือ build ในเครื่องที่มี `.env.local`
+4. `npm run build` แล้ว `firebase deploy --only hosting`
 
-Yes, you can!
+### ก่อนเปิดใช้งานจริง
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- ตรวจ **Firestore Security Rules** (การจองจากสาธารณะ vs การอนุมัติ/ลบของ admin)
+- สร้างบัญชีผู้ดูแลใน **Firebase Authentication**
+- อย่า commit ไฟล์ `.env` / `.env.local` ที่มี token จริง
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## เส้นทางหลัก
+
+| Path | คำอธิบาย |
+|------|----------|
+| `/` | ปฏิทิน + จองห้อง |
+| `/tracking` | ติดตามสถานะ |
+| `/login` | เข้าสู่ระบบผู้ดูแล |
+| `/admin` | อนุมัติการจอง |
+| `/admin/manage` | จัดการรายการ |
+| `/admin/reports` | รายงาน |
+
+## เอกสารระบบ
+
+สถาปัตยกรรมและรายละเอียดฟังก์ชัน: [`.lovable/plan.md`](.lovable/plan.md)
+
+## ไฟล์สำคัญ
+
+| ไฟล์ | บทบาท |
+|------|--------|
+| `src/lib/firebase.ts` | Firebase init |
+| `src/lib/mockData.ts` | ห้อง หน่วยงาน อุปกรณ์ ช่วงเวลา |
+| `src/lib/pdfGenerator.ts` | พิมพ์แบบฟอร์ม (HTML + ฟอนต์ Sarabun ใน `public/`) |
+| `src/lib/telegram.ts` | แจ้งเตือน Telegram |

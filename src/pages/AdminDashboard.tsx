@@ -7,7 +7,7 @@ import {
 import { th } from "date-fns/locale";
 import { Check, X, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Clock, MapPin, User, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROOMS, ROOM_COLORS, ROOM_COLORS_LIGHT } from "@/lib/mockData";
+import { ROOMS, ROOM_COLORS, resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, getDocs } from "firebase/firestore";
@@ -104,7 +104,7 @@ export default function AdminDashboard() {
   const calendarReservations = useMemo(() => {
     const base = reservations.filter((r) => r.status === "approved" || r.status === "pending");
     if (roomFilter === "all") return base;
-    return base.filter((r) => r.room === roomFilter);
+    return base.filter((r) => roomMatchesFilter(r.room, roomFilter));
   }, [reservations, roomFilter]);
 
   const getBookingsForDay = (day: Date) =>
@@ -119,7 +119,7 @@ export default function AdminDashboard() {
       .filter((r) => {
         if (!r.date) return false;
         if (r.status !== "approved" && r.status !== "pending") return false;
-        if (roomFilter !== "all" && r.room !== roomFilter) return false;
+        if (roomFilter !== "all" && !roomMatchesFilter(r.room, roomFilter)) return false;
         return isSameDay(new Date(r.date), selectedDay);
       })
       .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));
@@ -191,8 +191,8 @@ export default function AdminDashboard() {
                       <TableCell className="font-medium text-xs">{r.department}</TableCell>
                       <TableCell className="text-xs max-w-[180px] truncate">{r.topic}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={cn("text-xs", ROOM_COLORS_LIGHT[r.room])}>
-                          {r.room}
+                        <Badge variant="outline" className={cn("text-xs", roomColorClass(r.room, true))}>
+                          {resolveRoom(r.room)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs whitespace-nowrap">
@@ -381,17 +381,17 @@ export default function AdminDashboard() {
                       {bookings.slice(0, 3).map((r) => (
                         <div
                           key={r.id}
-                          title={`${r.topic}\n${r.room} | ${r.startTime}-${r.endTime}\n${r.bookerName}${
+                          title={`${r.topic}\n${resolveRoom(r.room)} | ${r.startTime}-${r.endTime}\n${r.bookerName}${
                             r.status === "pending" ? "\n[รออนุมัติ]" : ""
                           }`}
                           className={cn(
                             "rounded px-1 py-0.5 text-[10px] leading-tight truncate cursor-default",
                             r.status === "pending"
                               ? "bg-muted-foreground/30 text-foreground border border-dashed border-muted-foreground/50"
-                              : cn("text-white", ROOM_COLORS[r.room])
+                              : cn("text-white", roomColorClass(r.room))
                           )}
                         >
-                          {r.status === "pending" && "⧖ "}{r.startTime} {r.room}
+                          {r.status === "pending" && "⧖ "}{r.startTime} {resolveRoom(r.room)}
                         </div>
                       ))}
                       {bookings.length > 3 && (
@@ -505,15 +505,15 @@ export default function AdminDashboard() {
                                       "text-[10px] font-medium overflow-hidden shadow-sm cursor-default",
                                       isPending
                                         ? "bg-muted-foreground/30 text-foreground border border-dashed border-muted-foreground/60"
-                                        : cn("text-white", ROOM_COLORS[r.room])
+                                        : cn("text-white", roomColorClass(r.room))
                                     )}
                                     style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                                    title={`${r.topic}\n${r.room} | ${r.startTime}–${r.endTime}\n${r.bookerName}${
+                                    title={`${r.topic}\n${resolveRoom(r.room)} | ${r.startTime}–${r.endTime}\n${r.bookerName}${
                                       isPending ? "\n[รออนุมัติ]" : ""
                                     }`}
                                   >
                                     <span className="truncate">
-                                      {isPending && "⧖ "}{r.room} · {r.startTime}–{r.endTime}
+                                      {isPending && "⧖ "}{resolveRoom(r.room)} · {r.startTime}–{r.endTime}
                                     </span>
                                   </div>
                                 </div>
@@ -566,10 +566,10 @@ export default function AdminDashboard() {
                           "text-xs",
                           r.status === "pending"
                             ? ""
-                            : ROOM_COLORS_LIGHT[r.room]
+                            : roomColorClass(r.room, true)
                         )}
                       >
-                        {r.room}
+                        {resolveRoom(r.room)}
                       </Badge>
                       {r.status === "pending" && (
                         <Badge variant="secondary" className="text-[10px]">รออนุมัติ</Badge>

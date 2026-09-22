@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, DoorOpen, CalendarCheck, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROOMS, ROOM_COLORS } from "@/lib/mockData";
+import { ROOMS, ROOM_COLORS, resolveRoom } from "@/lib/mockData";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
 
@@ -43,7 +43,7 @@ export default function ReportDashboard() {
   const roomStats = useMemo(() => {
     return ROOMS.map((room) => {
       const filtered = approvedReservations.filter((r) => {
-        if (!r.date || r.room !== room.value) return false;
+        if (!r.date || resolveRoom(r.room) !== room.value) return false;
         const d = new Date(r.date);
         if (viewMode === "month") {
           return d.getFullYear() === selectedYear && d.getMonth() === selectedMonth;

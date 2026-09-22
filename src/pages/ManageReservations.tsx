@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { Pencil, Trash2, CalendarIcon, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROOMS, ROOM_COLORS_LIGHT, TIME_SLOTS } from "@/lib/mockData";
+import { ROOMS, TIME_SLOTS, resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import {
@@ -86,7 +86,7 @@ export default function ManageReservations() {
         r.bookerName?.toLowerCase().includes(q) ||
         r.department?.toLowerCase().includes(q) ||
         r.room?.toLowerCase().includes(q);
-      const matchRoom   = filterRoom   === "all" || r.room   === filterRoom;
+      const matchRoom   = roomMatchesFilter(r.room ?? "", filterRoom);
       const matchStatus = filterStatus === "all" || r.status === filterStatus;
       return matchSearch && matchRoom && matchStatus;
     });
@@ -158,7 +158,7 @@ export default function ManageReservations() {
     const ne = toMin(editEnd);
     const conflict = reservations.find((r) => {
       if (r.id === editTarget.id) return false;
-      if (r.room !== editRoom || r.date !== newDateStr) return false;
+      if (resolveRoom(r.room) !== resolveRoom(editRoom) || r.date !== newDateStr) return false;
       if (r.status === "rejected") return false;
       const rs = toMin(r.startTime); const re = toMin(r.endTime);
       return ns < re && ne > rs;
@@ -273,9 +273,9 @@ export default function ManageReservations() {
                       <TableCell>
                         <Badge
                           variant="outline"
-                          className={cn("text-xs", ROOM_COLORS_LIGHT[r.room])}
+                          className={cn("text-xs", roomColorClass(r.room, true))}
                         >
-                          {r.room}
+                          {resolveRoom(r.room)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs max-w-[180px] truncate">{r.topic}</TableCell>
@@ -425,6 +425,7 @@ export default function ManageReservations() {
                     mode="single"
                     selected={editDate}
                     onSelect={setEditDate}
+                    locale={th}
                     initialFocus
                     className="p-3 pointer-events-auto"
                   />

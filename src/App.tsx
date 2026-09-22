@@ -13,6 +13,12 @@ import ReportDashboard from "@/pages/ReportDashboard";
 import TrackingPage from "@/pages/TrackingPage";
 import NotFound from "./pages/NotFound";
 
+/** รองรับ GitHub Pages (subpath) ผ่าน Vite `base` */
+const routerBasename =
+  import.meta.env.BASE_URL !== "/"
+    ? import.meta.env.BASE_URL.replace(/\/$/, "")
+    : undefined;
+
 // เส้นทางที่ต้องล็อกอินก่อน — redirect ไป login ถ้ายังไม่มี session
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -97,14 +103,32 @@ function AppRoutes() {
   );
 }
 
+function FirebaseConfigNotice() {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6 bg-muted">
+      <div className="max-w-md text-center space-y-2 text-sm">
+        <p className="font-semibold text-destructive">ยังไม่ได้ตั้งค่า Firebase ตอน build</p>
+        <p className="text-muted-foreground">
+          ตั้ง GitHub Actions Secrets ชื่อ <code className="text-xs">VITE_FIREBASE_*</code> ตาม{" "}
+          <code className="text-xs">.env.example</code> แล้ว deploy ใหม่
+        </p>
+      </div>
+    </div>
+  );
+}
+
 const App = () => (
   <TooltipProvider>
     <Toaster />
     <Sonner />
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+    <BrowserRouter basename={routerBasename}>
+      {!import.meta.env.VITE_FIREBASE_API_KEY ? (
+        <FirebaseConfigNotice />
+      ) : (
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      )}
     </BrowserRouter>
   </TooltipProvider>
 );

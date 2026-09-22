@@ -128,6 +128,7 @@ async function enrichMultiDayData(
 }
 
 function buildPrintHtml(data: Record<string, unknown>): string {
+  const assetBase = import.meta.env.BASE_URL;
   const now = new Date();
   const { day, month, yearBE } = formatThaiDateParts(now);
   const dd = String(now.getDate()).padStart(2, "0");
@@ -172,12 +173,12 @@ function buildPrintHtml(data: Record<string, unknown>): string {
   <style>
     @font-face {
       font-family: "Sarabun";
-      src: url("/Sarabun-Regular.ttf") format("truetype");
+      src: url("${assetBase}Sarabun-Regular.ttf") format("truetype");
       font-weight: 400;
     }
     @font-face {
       font-family: "Sarabun";
-      src: url("/Sarabun-Bold.ttf") format("truetype");
+      src: url("${assetBase}Sarabun-Bold.ttf") format("truetype");
       font-weight: 700;
     }
     @page {

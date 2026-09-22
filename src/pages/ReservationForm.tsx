@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { format, startOfDay, eachDayOfInterval } from "date-fns";
 import { th } from "date-fns/locale";
-import { CalendarIcon, Printer, Building2, BookOpen, Clock3, DoorOpen, MonitorSpeaker, UserCircle2, Users, CheckCircle2, Copy, FileSearch } from "lucide-react";
+import { CalendarIcon, Printer, Building2, BookOpen, Clock3, DoorOpen, MonitorSpeaker, UserCircle2, Users, CheckCircle2, Copy, FileSearch, ImageDown } from "lucide-react";
+import { downloadBookingCardPng } from "@/lib/bookingCardImage";
 import { cn } from "@/lib/utils";
 import { DEPARTMENTS, DEPARTMENT_OTHER, ROOMS, EQUIPMENT_OPTIONS, TIME_SLOTS } from "@/lib/mockData";
 import { useToast } from "@/hooks/use-toast";
@@ -292,6 +293,29 @@ export default function ReservationForm() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleSaveBookingImage = async () => {
+    if (!savedFormData || !savedTrackingNumber) return;
+    try {
+      await downloadBookingCardPng({
+        trackingNumber: savedTrackingNumber,
+        topic: String(savedFormData.topic ?? ""),
+        room: String(savedFormData.room ?? room),
+        formData: savedFormData,
+        startTime: String(savedFormData.startTime ?? ""),
+        endTime: String(savedFormData.endTime ?? ""),
+        bookerName: String(savedFormData.bookerName ?? bookerName),
+      });
+      toast({ title: "บันทึกรูปภาพแล้ว", description: "ไฟล์ PNG ถูกดาวน์โหลดลงเครื่องของคุณ" });
+    } catch (e) {
+      console.error(e);
+      toast({
+        title: "บันทึกรูปภาพไม่สำเร็จ",
+        description: "กรุณาลองใหม่อีกครั้ง",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleNewBooking = () => {
     setSubmitted(false);
     setSavedTrackingNumber("");
@@ -374,6 +398,14 @@ export default function ReservationForm() {
               >
                 <Printer className="h-4 w-4" />
                 พิมพ์แบบฟอร์มจองห้องประชุม
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full gap-2 border-emerald-200 text-emerald-800 hover:bg-emerald-50"
+                onClick={handleSaveBookingImage}
+              >
+                <ImageDown className="h-4 w-4" />
+                บันทึกรูปภาพ (PNG)
               </Button>
               <div className="grid grid-cols-2 gap-2">
                 <Button

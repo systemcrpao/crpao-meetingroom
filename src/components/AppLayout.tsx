@@ -4,9 +4,12 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdminProfile } from "@/contexts/AdminProfileContext";
+import { Badge } from "@/components/ui/badge";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const { profile } = useAdminProfile();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -28,9 +31,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
             <div className="flex items-center gap-2">
               {user && (
-                <span className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
                   <User className="h-3.5 w-3.5" />
                   {user.email}
+                  {profile?.isSuperAdmin && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                      Super Admin
+                    </Badge>
+                  )}
+                  {profile?.role === "admin" && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      Admin
+                    </Badge>
+                  )}
                 </span>
               )}
               <Button

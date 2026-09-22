@@ -23,13 +23,13 @@ function parseChatId(raw: string): number | string {
 function buildPlainMessage(formData: Record<string, unknown>): string {
   return [
     "📢 มีการขอจองห้องประชุมใหม่!",
-    `ห้องประชุม: ${formData.room ?? "-"}`,
-    `วันที่: ${formData.date ?? "-"}`,
-    `เวลา: ${formData.startTime ?? "-"} น. ถึง ${formData.endTime ?? "-"} น.`,
-    `ผู้จอง: ${formData.bookerName ?? "-"} (${formData.department ?? "-"})`,
-    `เบอร์ติดต่อ: ${formData.bookerPhone ?? "-"}`,
-    `เรื่อง: ${formData.topic ?? "-"}`,
-    `Tracking ID: ${formData.trackingNumber ?? "-"}`,
+    `🏢 ห้องประชุม: ${formData.room ?? "-"}`,
+    `📅 วันที่: ${formData.date ?? "-"}`,
+    `⏰ เวลา: ${formData.startTime ?? "-"} น. ถึง ${formData.endTime ?? "-"} น.`,
+    `👤 ผู้จอง: ${formData.bookerName ?? "-"} (${formData.department ?? "-"})`,
+    `📞 เบอร์ติดต่อ: ${formData.bookerPhone ?? "-"}`,
+    `📝 เรื่อง: ${formData.topic ?? "-"}`,
+    `🔍 Tracking ID: ${formData.trackingNumber ?? "-"}`,
   ].join("\n");
 }
 

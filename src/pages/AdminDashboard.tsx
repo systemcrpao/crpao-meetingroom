@@ -8,6 +8,8 @@ import { th } from "date-fns/locale";
 import { Check, X, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Clock, MapPin, User, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROOMS, ROOM_COLORS, resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
+import { canApproveRoom } from "@/lib/adminAccess";
+import { useAdminProfile } from "@/contexts/AdminProfileContext";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, getDocs } from "firebase/firestore";
@@ -25,6 +27,7 @@ const WEEK_LABELS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
 export default function AdminDashboard() {
   const { toast } = useToast();
+  const { profile } = useAdminProfile();
   const [reservations, setReservations] = useState<any[]>([]);
   const [roomFilter, setRoomFilter] = useState("all");
   const [calendarView, setCalendarView] = useState<"week" | "month">("month");
@@ -54,12 +57,26 @@ export default function AdminDashboard() {
     return () => unsubscribe();
   }, []);
 
-  const pendingReservations = reservations.filter((r) => r.status === "pending");
+  const pendingReservations = reservations.filter(
+    (r) => r.status === "pending" && canApproveRoom(profile, r.room),
+  );
   const approvedReservations = reservations.filter((r) => r.status === "approved");
   const totalPendingPages = Math.max(1, Math.ceil(pendingReservations.length / ITEMS_PER_PAGE));
   const paginatedPending = pendingReservations.slice((pendingPage - 1) * ITEMS_PER_PAGE, pendingPage * ITEMS_PER_PAGE);
 
-  const handleUpdateStatus = async (id: string, newStatus: "approved" | "rejected") => {
+  const handleUpdateStatus = async (
+    id: string,
+    newStatus: "approved" | "rejected",
+    room: string,
+  ) => {
+    if (!canApproveRoom(profile, room)) {
+      toast({
+        title: "ไม่มีสิทธิ์",
+        description: "คุณไม่ได้รับอนุญาตให้อนุมัติห้องประชุมนี้",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       if (newStatus === "approved") {
         await updateDoc(doc(db, "reservations", id), { status: "approved" });
@@ -210,7 +227,7 @@ export default function AdminDashboard() {
                             size="sm"
                             variant="outline"
                             className="h-7 text-xs text-[hsl(var(--room-green))]"
-                            onClick={() => handleUpdateStatus(r.id, "approved")}
+                            onClick={() => handleUpdateStatus(r.id, "approved", r.room)}
                           >
                             <Check className="h-3 w-3 mr-1" /> อนุมัติ
                           </Button>
@@ -218,7 +235,7 @@ export default function AdminDashboard() {
                             size="sm"
                             variant="outline"
                             className="h-7 text-xs text-destructive"
-                            onClick={() => handleUpdateStatus(r.id, "rejected")}
+                            onClick={() => handleUpdateStatus(r.id, "rejected", r.room)}
                           >
                             <X className="h-3 w-3 mr-1" /> ปฏิเสธ
                           </Button>

@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AdminProfileProvider, useAdminProfile } from "@/contexts/AdminProfileContext";
 import { AppLayout } from "@/components/AppLayout";
 import { UserLayout } from "@/components/UserLayout";
 import PublicPage from "@/pages/PublicPage";
@@ -10,6 +11,7 @@ import LoginPage from "@/pages/LoginPage";
 import AdminDashboard from "@/pages/AdminDashboard";
 import ManageReservations from "@/pages/ManageReservations";
 import ReportDashboard from "@/pages/ReportDashboard";
+import AdminPermissions from "@/pages/AdminPermissions";
 import TrackingPage from "@/pages/TrackingPage";
 import NotFound from "./pages/NotFound";
 
@@ -28,6 +30,32 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
     </div>
   );
   if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const { profile, loading } = useAdminProfile();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+  if (!profile?.isAdmin) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+function RequireSuperAdmin({ children }: { children: React.ReactNode }) {
+  const { profile, loading } = useAdminProfile();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+  if (!profile?.isSuperAdmin) return <Navigate to="/admin" replace />;
   return <>{children}</>;
 }
 
@@ -71,9 +99,11 @@ function AppRoutes() {
         path="/admin"
         element={
           <RequireAuth>
-            <AppLayout>
-              <AdminDashboard />
-            </AppLayout>
+            <RequireAdmin>
+              <AppLayout>
+                <AdminDashboard />
+              </AppLayout>
+            </RequireAdmin>
           </RequireAuth>
         }
       />
@@ -81,9 +111,11 @@ function AppRoutes() {
         path="/admin/manage"
         element={
           <RequireAuth>
-            <AppLayout>
-              <ManageReservations />
-            </AppLayout>
+            <RequireAdmin>
+              <AppLayout>
+                <ManageReservations />
+              </AppLayout>
+            </RequireAdmin>
           </RequireAuth>
         }
       />
@@ -91,9 +123,25 @@ function AppRoutes() {
         path="/admin/reports"
         element={
           <RequireAuth>
-            <AppLayout>
-              <ReportDashboard />
-            </AppLayout>
+            <RequireAdmin>
+              <AppLayout>
+                <ReportDashboard />
+              </AppLayout>
+            </RequireAdmin>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/permissions"
+        element={
+          <RequireAuth>
+            <RequireAdmin>
+              <RequireSuperAdmin>
+                <AppLayout>
+                  <AdminPermissions />
+                </AppLayout>
+              </RequireSuperAdmin>
+            </RequireAdmin>
           </RequireAuth>
         }
       />
@@ -126,7 +174,9 @@ const App = () => (
         <FirebaseConfigNotice />
       ) : (
         <AuthProvider>
-          <AppRoutes />
+          <AdminProfileProvider>
+            <AppRoutes />
+          </AdminProfileProvider>
         </AuthProvider>
       )}
     </BrowserRouter>

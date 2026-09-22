@@ -258,7 +258,8 @@ export default function ReservationForm() {
         toast({
           title: "แจ้งเตือน Telegram ไม่สำเร็จ",
           description:
-            "บันทึกการจองแล้ว แต่ยังไม่ส่งข้อความเข้ากลุ่ม — ตรวจ GitHub Secrets และ Chat ID (-519612591) แล้ว deploy ใหม่",
+            telegramResult.error ??
+            "บันทึกการจองแล้ว — เชิญ @reportCrpaoMeeting_bot เข้ากลุ่มแล้ว deploy ใหม่",
           variant: "destructive",
         });
       }

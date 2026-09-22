@@ -18,6 +18,9 @@ dist
 dist-ssr
 *.local
 
+# เอกสารภายใน — ไม่ push ขึ้น GitHub
+docs/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -8,10 +8,17 @@ function normalizeEnv(value: string): string {
 }
 
 const TELEGRAM_BOT_TOKEN = normalizeEnv(import.meta.env.VITE_TELEGRAM_BOT_TOKEN ?? "");
-const TELEGRAM_CHAT_ID = normalizeEnv(import.meta.env.VITE_TELEGRAM_CHAT_ID ?? "").replace(
-  /\s/g,
-  "",
-);
+const TELEGRAM_CHAT_ID = normalizeEnv(import.meta.env.VITE_TELEGRAM_CHAT_ID ?? "")
+  .replace(/\s/g, "")
+  .replace(/\u2212/g, "-");
+
+function parseChatId(raw: string): number | string {
+  if (/^-?\d+$/.test(raw)) {
+    const n = Number(raw);
+    if (Number.isSafeInteger(n)) return n;
+  }
+  return raw;
+}
 
 function buildPlainMessage(formData: Record<string, unknown>): string {
   return [
@@ -26,33 +33,30 @@ function buildPlainMessage(formData: Record<string, unknown>): string {
   ].join("\n");
 }
 
-async function fetchTelegramGet(
-  token: string,
-  chatId: string,
-  text: string,
-): Promise<{ ok: boolean; body: string }> {
-  const params = new URLSearchParams({
-    chat_id: chatId,
-    text: text.slice(0, 4096),
-  });
-  const url = `https://api.telegram.org/bot${token}/sendMessage?${params.toString()}`;
-  const response = await fetch(url, { method: "GET" });
-  const body = await response.text();
-  return { ok: response.ok, body };
-}
+type TelegramApiResponse = {
+  ok: boolean;
+  description?: string;
+};
 
-async function logBotIdentity(token: string): Promise<void> {
+async function sendTelegramMessage(
+  token: string,
+  chatId: number | string,
+  text: string,
+): Promise<{ ok: boolean; description?: string; raw: string }> {
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: text.slice(0, 4096),
+    }),
+  });
+  const raw = await response.text();
   try {
-    const res = await fetch(`https://api.telegram.org/bot${token}/getMe`);
-    const json = await res.json();
-    if (json?.ok && json?.result?.username) {
-      console.error(
-        "Telegram bot ใน build นี้: @%s — ต้องเป็นบอทที่อยู่ในกลุ่ม (เช่น reportCrpaoMeeting_bot)",
-        json.result.username,
-      );
-    }
+    const json = JSON.parse(raw) as TelegramApiResponse;
+    return { ok: json.ok, description: json.description, raw };
   } catch {
-    /* ignore */
+    return { ok: false, description: raw, raw };
   }
 }
 
@@ -70,20 +74,19 @@ export const sendTelegramNotification = async (
     return { ok: false, error: `รูปแบบ chat_id ไม่ถูกต้อง: ${TELEGRAM_CHAT_ID}` };
   }
 
+  const chatId = parseChatId(TELEGRAM_CHAT_ID);
   const message = buildPlainMessage(formData);
 
   try {
-    const { ok, body } = await fetchTelegramGet(
-      TELEGRAM_BOT_TOKEN,
-      TELEGRAM_CHAT_ID,
-      message,
-    );
+    const sent = await sendTelegramMessage(TELEGRAM_BOT_TOKEN, chatId, message);
 
-    if (!ok) {
-      console.error("ส่ง Telegram ไม่สำเร็จ:", body);
+    if (!sent.ok) {
+      console.error("ส่ง Telegram ไม่สำเร็จ:", sent.raw);
       console.error("chat_id ที่ใช้:", TELEGRAM_CHAT_ID);
-      await logBotIdentity(TELEGRAM_BOT_TOKEN);
-      return { ok: false, error: body };
+      return {
+        ok: false,
+        error: sent.description ?? sent.raw,
+      };
     }
     return { ok: true };
   } catch (error) {

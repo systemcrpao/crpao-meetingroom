@@ -7,6 +7,15 @@ import {
 import { th } from "date-fns/locale";
 import { Check, X, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Clock, MapPin, User, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useThaiPublicHolidays } from "@/hooks/useThaiPublicHolidays";
+import {
+  CalendarHolidayMarker,
+  CalendarHolidayWeekLine,
+  CalendarHolidayLegendItem,
+  SelectedDayHolidayPanel,
+  calendarHolidayCellClasses,
+  monthBookingCap,
+} from "@/components/calendar/calendarHolidayUi";
 import { resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
 import { roomSolidColorClass } from "@/lib/meetingRooms";
 import { canApproveRoom } from "@/lib/adminAccess";
@@ -119,6 +128,16 @@ export default function AdminDashboard() {
   };
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  const holidayYears = useMemo(() => {
+    const y = new Set<number>();
+    y.add(monthDate.getFullYear());
+    weekDays.forEach((d) => y.add(d.getFullYear()));
+    return Array.from(y);
+  }, [monthDate, weekStart]);
+
+  const { getHolidaysForDay } = useThaiPublicHolidays(holidayYears);
+  const selectedDayHolidays = getHolidaysForDay(selectedDay);
 
   // รวมทั้ง approved และ pending ไว้แสดงในปฏิทิน
   const calendarReservations = useMemo(() => {
@@ -324,6 +343,7 @@ export default function AdminDashboard() {
               <div className="h-3 w-3 rounded-sm bg-muted-foreground/40 border border-dashed border-muted-foreground/60" />
               <span className="text-xs text-muted-foreground">รออนุมัติ</span>
             </div>
+            <CalendarHolidayLegendItem className="ml-2 pl-2 border-l" />
           </div>
         </CardHeader>
         <CardContent>
@@ -365,6 +385,10 @@ export default function AdminDashboard() {
                 {/* Day cells */}
                 {monthDays.days.map((day) => {
                   const bookings = getBookingsForDay(day);
+                  const dayHolidays = getHolidaysForDay(day);
+                  const isHoliday = dayHolidays.length > 0;
+                  const bookingCap = monthBookingCap(dayHolidays);
+                  const isSelected = isSameDay(day, selectedDay);
                   const isToday = isSameDay(day, new Date());
                   const isSun   = getDay(day) === 0;
                   const isSat   = getDay(day) === 6;
@@ -372,13 +396,14 @@ export default function AdminDashboard() {
                     <div
                       key={day.toISOString()}
                       className={cn(
-                        "border-r border-b aspect-square p-1 flex flex-col gap-0.5 cursor-pointer transition-colors",
+                        "border-r border-b aspect-square p-1 flex flex-col gap-0.5 min-h-0 overflow-hidden cursor-pointer transition-colors",
                         !isSameMonth(day, monthDate) && "bg-muted/30",
-                        isSameDay(day, selectedDay) && "bg-primary/10 ring-1 ring-inset ring-primary/30",
-                        !isSameDay(day, selectedDay) && isToday && "bg-primary/5",
-                        !isSameDay(day, selectedDay) && !isToday && isSun && "bg-red-50/70",
-                        !isSameDay(day, selectedDay) && !isToday && isSat && "bg-blue-50/70",
-                        !isSameDay(day, selectedDay) && "hover:bg-muted/50",
+                        isSelected && "bg-primary/10 ring-1 ring-inset ring-primary/30",
+                        !isSelected && isToday && "bg-primary/5",
+                        calendarHolidayCellClasses(isHoliday, isSelected),
+                        !isSelected && !isToday && !isHoliday && isSun && "bg-red-50/70",
+                        !isSelected && !isToday && !isHoliday && isSat && "bg-blue-50/70",
+                        !isSelected && "hover:bg-muted/50",
                       )}
                       onClick={() => setSelectedDay(day)}
                     >
@@ -397,8 +422,10 @@ export default function AdminDashboard() {
                         {format(day, "d")}
                       </div>
 
+                      <CalendarHolidayMarker holidays={dayHolidays} />
+
                       {/* Booking chips (max 3, rest collapsed) */}
-                      {bookings.slice(0, 3).map((r) => (
+                      {bookings.slice(0, bookingCap).map((r) => (
                         <div
                           key={r.id}
                           title={`${r.topic}\n${resolveRoom(r.room)} | ${r.startTime}-${r.endTime}\n${r.bookerName}${
@@ -414,8 +441,8 @@ export default function AdminDashboard() {
                           {r.status === "pending" && "⧖ "}{r.startTime} {resolveRoom(r.room)}
                         </div>
                       ))}
-                      {bookings.length > 3 && (
-                        <div className="text-[10px] text-muted-foreground pl-1">+{bookings.length - 3} รายการ</div>
+                      {bookings.length > bookingCap && (
+                        <div className="text-[10px] text-muted-foreground pl-1">+{bookings.length - bookingCap} รายการ</div>
                       )}
                     </div>
                   );
@@ -463,6 +490,8 @@ export default function AdminDashboard() {
               <div className="space-y-1">
                 {weekDays.map((day) => {
                   const bookings = getBookingsForDay(day);
+                  const dayHolidays = getHolidaysForDay(day);
+                  const isHoliday = dayHolidays.length > 0;
                   const isToday = isSameDay(day, new Date());
                   const isSun   = getDay(day) === 0;
                   const isSat   = getDay(day) === 6;
@@ -472,10 +501,11 @@ export default function AdminDashboard() {
                       key={day.toISOString()}
                       className={cn(
                         "flex items-start gap-2 rounded-lg border px-2 py-1.5",
-                        isToday ? "border-primary/50 bg-primary/5" :
-                        isSun ? "border-red-200 bg-red-50/50" :
-                        isSat ? "border-blue-200 bg-blue-50/50" :
-                        "border-border"
+                        isToday && "border-primary/50 bg-primary/5",
+                        isHoliday && !isToday && "border-rose-200/80 bg-rose-50/40 dark:border-rose-900 dark:bg-rose-950/20",
+                        !isToday && !isHoliday && isSun && "border-red-200 bg-red-50/50",
+                        !isToday && !isHoliday && isSat && "border-blue-200 bg-blue-50/50",
+                        !isToday && !isHoliday && !isWeekend && "border-border",
                       )}
                     >
                       {/* Day label */}
@@ -499,12 +529,13 @@ export default function AdminDashboard() {
 
                       {/* Gantt timeline */}
                       <div className="flex-1 min-w-0 overflow-hidden relative">
+                        <CalendarHolidayWeekLine holidays={dayHolidays} />
                         {/* Booking bars */}
-                        {bookings.length === 0 ? (
+                        {bookings.length === 0 && !isHoliday ? (
                           <div className="h-6 flex items-center">
                             <span className="text-xs text-muted-foreground italic">ไม่มีการจอง</span>
                           </div>
-                        ) : (
+                        ) : bookings.length === 0 ? null : (
                           <div className="space-y-0.5">
                             {bookings.map((r) => {
                               const startH = parseInt(r.startTime?.split(":")[0] ?? "8");
@@ -562,10 +593,11 @@ export default function AdminDashboard() {
             {format(selectedDay, "EEEE d MMMM", { locale: th })} {selectedDay.getFullYear() + 543}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {selectedDayBookings.length === 0 ? (
+        <CardContent className="space-y-3">
+          <SelectedDayHolidayPanel holidays={selectedDayHolidays} />
+          {selectedDayBookings.length === 0 && selectedDayHolidays.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">ไม่มีการจองในวันนี้</p>
-          ) : (
+          ) : selectedDayBookings.length === 0 ? null : (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">{selectedDayBookings.length} รายการ</p>
               {selectedDayBookings.map((r) => (

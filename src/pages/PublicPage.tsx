@@ -7,10 +7,17 @@ import {
 import { th } from "date-fns/locale";
 import {
   ChevronLeft, ChevronRight, CalendarDays, CalendarRange,
-  Clock, MapPin, User, Building, LayoutPanelLeft, ClipboardEdit, Flag,
+  Clock, MapPin, User, Building, LayoutPanelLeft, ClipboardEdit,
 } from "lucide-react";
 import { useThaiPublicHolidays } from "@/hooks/useThaiPublicHolidays";
-import { holidayTypeLabel } from "@/lib/thaiPublicHolidays";
+import {
+  CalendarHolidayLegendItem,
+  CalendarHolidayMarker,
+  CalendarHolidayWeekLine,
+  SelectedDayHolidayPanel,
+  calendarHolidayCellClasses,
+  monthBookingCap,
+} from "@/components/calendar/calendarHolidayUi";
 import { cn } from "@/lib/utils";
 import { resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
 import { roomSolidColorClass } from "@/lib/meetingRooms";
@@ -225,6 +232,7 @@ export default function PublicPage() {
                     <div className="h-2.5 w-2.5 rounded-sm border border-dashed border-muted-foreground/60 bg-muted-foreground/25" />
                     <span className="text-[11px] text-muted-foreground">รออนุมัติ</span>
                   </div>
+                  <CalendarHolidayLegendItem className="ml-1 pl-2 border-l" />
                 </div>
                 <div className="flex items-center gap-2 sm:ml-auto">
                   <Badge variant="secondary" className="text-[10px] h-5 bg-green-100 text-green-700 border-green-200 dark:bg-green-950/50 dark:text-green-300 dark:border-green-800">
@@ -275,6 +283,9 @@ export default function PublicPage() {
                     ))}
                     {days.map((day) => {
                       const bookings   = getBookingsForDay(day);
+                      const dayHolidays = getHolidaysForDay(day);
+                      const isHoliday  = dayHolidays.length > 0;
+                      const bookingCap = monthBookingCap(dayHolidays);
                       const isToday    = isSameDay(day, new Date());
                       const isSelected = !!selectedDay && isSameDay(day, selectedDay);
                       const inMonth    = isSameMonth(day, monthDate);
@@ -285,14 +296,15 @@ export default function PublicPage() {
                           key={day.toISOString()}
                           onClick={() => setSelectedDay(day)}
                           className={cn(
-                            "border-r border-b aspect-square p-1 flex flex-col gap-0.5",
+                            "border-r border-b aspect-square p-1 flex flex-col gap-0.5 min-h-0 overflow-hidden",
                             "cursor-pointer transition-colors select-none",
                             !inMonth && "opacity-40 bg-muted/20",
                             isToday && !isSelected && "bg-primary/5",
                             isSelected && "bg-primary/15 ring-1 ring-inset ring-primary",
-                            !isSelected && !isToday && isSun && "bg-red-50/70 hover:bg-red-100/60 dark:bg-red-950/30 dark:hover:bg-red-950/50",
-                            !isSelected && !isToday && isSat && "bg-blue-50/70 hover:bg-blue-100/60 dark:bg-blue-950/30 dark:hover:bg-blue-950/50",
-                            !isSelected && !isToday && !isSun && !isSat && "hover:bg-muted/40",
+                            calendarHolidayCellClasses(isHoliday, isSelected),
+                            !isSelected && !isToday && !isHoliday && isSun && "bg-red-50/70 hover:bg-red-100/60 dark:bg-red-950/30 dark:hover:bg-red-950/50",
+                            !isSelected && !isToday && !isHoliday && isSat && "bg-blue-50/70 hover:bg-blue-100/60 dark:bg-blue-950/30 dark:hover:bg-blue-950/50",
+                            !isSelected && !isToday && !isHoliday && !isSun && !isSat && "hover:bg-muted/40",
                           )}
                         >
                           <div className={cn(
@@ -304,7 +316,8 @@ export default function PublicPage() {
                           )}>
                             {format(day, "d")}
                           </div>
-                          {bookings.slice(0, 3).map((r) => (
+                          <CalendarHolidayMarker holidays={dayHolidays} />
+                          {bookings.slice(0, bookingCap).map((r) => (
                             <div key={r.id}
                               className={cn(
                                 "rounded px-1 py-0.5 text-[10px] leading-tight truncate pointer-events-none",
@@ -316,8 +329,8 @@ export default function PublicPage() {
                               {r.status === "pending" && "⧖ "}{r.startTime} {resolveRoom(r.room)}
                             </div>
                           ))}
-                          {bookings.length > 3 && (
-                            <div className="text-[10px] text-muted-foreground pl-0.5">+{bookings.length - 3} รายการ</div>
+                          {bookings.length > bookingCap && (
+                            <div className="text-[10px] text-muted-foreground pl-0.5">+{bookings.length - bookingCap} รายการ</div>
                           )}
                         </div>
                       );
@@ -358,6 +371,8 @@ export default function PublicPage() {
                   <div className="space-y-1">
                     {weekDays.map((day) => {
                       const bookings   = getBookingsForDay(day);
+                      const dayHolidays = getHolidaysForDay(day);
+                      const isHoliday  = dayHolidays.length > 0;
                       const isToday    = isSameDay(day, new Date());
                       const isSelected = !!selectedDay && isSameDay(day, selectedDay);
                       const isSun      = getDay(day) === 0;
@@ -371,9 +386,10 @@ export default function PublicPage() {
                             "cursor-pointer transition-colors select-none",
                             isToday && !isSelected && "border-primary/40 bg-primary/5",
                             isSelected && "border-primary bg-primary/10",
-                            !isToday && !isSelected && isSun && "border-red-200 bg-red-50/50 hover:bg-red-100/50 dark:border-red-900 dark:bg-red-950/25 dark:hover:bg-red-950/40",
-                            !isToday && !isSelected && isSat && "border-blue-200 bg-blue-50/50 hover:bg-blue-100/50 dark:border-blue-900 dark:bg-blue-950/25 dark:hover:bg-blue-950/40",
-                            !isToday && !isSelected && !isWeekend && "border-border hover:bg-muted/30",
+                            isHoliday && !isSelected && "border-rose-200/80 bg-rose-50/40 dark:border-rose-900 dark:bg-rose-950/20",
+                            !isToday && !isSelected && !isHoliday && isSun && "border-red-200 bg-red-50/50 hover:bg-red-100/50 dark:border-red-900 dark:bg-red-950/25 dark:hover:bg-red-950/40",
+                            !isToday && !isSelected && !isHoliday && isSat && "border-blue-200 bg-blue-50/50 hover:bg-blue-100/50 dark:border-blue-900 dark:bg-blue-950/25 dark:hover:bg-blue-950/40",
+                            !isToday && !isSelected && !isHoliday && !isWeekend && "border-border hover:bg-muted/30",
                           )}
                         >
                           <div className="w-[70px] flex-shrink-0 text-right pr-1 pt-0.5">
@@ -388,7 +404,8 @@ export default function PublicPage() {
                             <div className="text-[9px] text-muted-foreground">{format(day, "MMM", { locale: th })} {(day.getFullYear() + 543) % 100}</div>
                           </div>
                           <div className="flex-1 min-w-0 overflow-hidden relative">
-                            {bookings.length === 0 ? (
+                            <CalendarHolidayWeekLine holidays={dayHolidays} />
+                            {bookings.length === 0 && !isHoliday ? (
                               <div className="h-5 flex items-center">
                                 <span className="text-[10px] text-muted-foreground italic">ไม่มีการจอง</span>
                               </div>
@@ -459,20 +476,7 @@ export default function PublicPage() {
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {selectedDayHolidays.length > 0 && (
-                      <div className="rounded-md border border-rose-200 bg-rose-50/80 dark:border-rose-800 dark:bg-rose-950/40 p-2 space-y-1.5">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-900 dark:text-rose-100">
-                          <Flag className="h-3.5 w-3.5" />
-                          วันหยุดราชการ
-                        </div>
-                        {selectedDayHolidays.map((h) => (
-                          <div key={`${h.date}-${h.name_th}`} className="text-sm">
-                            <p className="font-semibold leading-snug">{h.name_th}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{holidayTypeLabel(h.type)}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <SelectedDayHolidayPanel holidays={selectedDayHolidays} />
                     {selectedBookings.length === 0 ? (
                       <p className="text-xs text-muted-foreground italic text-center py-2">ไม่มีการจองในวันนี้</p>
                     ) : (

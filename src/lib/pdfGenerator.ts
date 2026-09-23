@@ -1,5 +1,6 @@
 import { resolveDepartmentForDisplay } from "@/lib/mockData";
 import { DEFAULT_MEETING_ROOMS, resolveRoom, type MeetingRoom } from "@/lib/meetingRooms";
+import { parseApprovedAt } from "@/lib/officialPrintNumber";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
@@ -91,6 +92,18 @@ export function formatBookingPeriod(data: Record<string, unknown>): string {
   return range;
 }
 
+export type ReservationPrintMode = "booking" | "official";
+
+function formatApprovalStamp(d: Date) {
+  return {
+    dd: String(d.getDate()).padStart(2, "0"),
+    mm: String(d.getMonth() + 1).padStart(2, "0"),
+    yyyyBE: String(d.getFullYear() + 543),
+    hh: String(d.getHours()).padStart(2, "0"),
+    min: String(d.getMinutes()).padStart(2, "0"),
+  };
+}
+
 async function enrichMultiDayData(
   formData: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
@@ -131,7 +144,9 @@ async function enrichMultiDayData(
 function buildPrintHtml(
   data: Record<string, unknown>,
   rooms: MeetingRoom[] = DEFAULT_MEETING_ROOMS,
+  mode: ReservationPrintMode = "booking",
 ): string {
+  const isOfficial = mode === "official";
   const assetBase = import.meta.env.BASE_URL;
   const now = new Date();
   const { day, month, yearBE } = formatThaiDateParts(now);
@@ -158,6 +173,13 @@ function buildPrintHtml(
   const phone = esc(data.bookerPhone);
   const tracking = esc(data.trackingNumber);
   const equipment: string[] = Array.isArray(data.equipment) ? data.equipment : [];
+
+  const approvedAt = parseApprovedAt(data.approvedAt) ?? new Date();
+  const stamp = formatApprovalStamp(approvedAt);
+  const officialDocNumber = esc(data.officialDocNumber ?? "");
+  const officeHeaderLine = isOfficial && officialDocNumber
+    ? `เลขที่ ${officialDocNumber}&nbsp;&nbsp; วันที่ ${stamp.dd}/${stamp.mm}/${stamp.yyyyBE}&nbsp;&nbsp; เวลา ${stamp.hh}:${stamp.min} น.`
+    : `เลขที่ ......................&nbsp;&nbsp; วันที่ ........../........../..........&nbsp;&nbsp; เวลา ............. น.`;
 
   const roomRows = rooms
     .filter((r) => r.enabled)
@@ -222,6 +244,13 @@ function buildPrintHtml(
       min-height: ${PRINTABLE_HEIGHT_MM}mm;
       align-items: stretch;
     }
+    .sheet-booking-only::before { display: none; }
+    .sheet-booking-only .col-left {
+      width: 100%;
+      flex: 0 0 100%;
+      padding-right: 0;
+    }
+    .sheet-booking-only .col-right { display: none; }
     /* เส้นแบ่งกลาง — สูงเต็มพื้นที่พิมพ์ (ไม่ขึ้นกับความสูงคอลัมน์ซ้าย) */
     .sheet::before {
       content: "";
@@ -342,7 +371,7 @@ function buildPrintHtml(
   </style>
 </head>
 <body>
-  <div class="sheet">
+  <div class="sheet${isOfficial ? "" : " sheet-booking-only"}">
     <div class="col-left">
       <div class="center">
         <div class="date-line" style="font-weight:700">หมายเลขติดตาม ${tracking}</div>
@@ -359,7 +388,7 @@ function buildPrintHtml(
       <p>มีความประสงค์จะให้ดำเนินการประชุม/อบรม&nbsp;:&nbsp;โครงการ/<span class="th-word">เรื่อง</span></p>
       <p style="padding-left:1em">${topic}</p>
       <p>${scheduleBlock}</p>
-      <p style="font-size:9pt">จึงขอใช้ห้องประชุม (ทั้งนี้ ขอความกรุณาแนบสำเนาโครงการมาด้วย)</p>
+      <p style="font-size:9.5pt">จึงขอใช้ห้องประชุม (ทั้งนี้ ขอความกรุณาแนบสำเนาโครงการมาด้วย)</p>
 
       <div class="tab">${roomRows}</div>
       ${participants ? `<p style="text-align:right;font-size:10pt">จำนวนผู้เข้าร่วมประมาณ ${participants} คน</p>` : ""}
@@ -368,16 +397,16 @@ function buildPrintHtml(
       <div class="tab">${equipRows}</div>
 
       <div class="thai-distribute-block">
-        <p class="thai-distributed-line">ขณะใช้ห้องประชุมฯ ดังกล่าว จะดูแลความสะอาดและ</p>
-        <p class="thai-distributed-line">รักษาทรัพย์สินมิให้เกิดความเสียหาย พร้อมทั้งปิดระบบ</p>
-        <p class="thai-distributed-plain">ไฟฟ้าและอุปกรณ์ทุกชนิด หลังเสร็จสิ้นการประชุม</p>
+        <p class="thai-distributed-line">ขณะใช้ห้องประชุมฯ ดังกล่าว จะดูแลความสะอาดและรักษา</p>
+        <p class="thai-distributed-line">ทรัพย์สินมิให้เกิดความเสียหาย พร้อมทั้งปิดระบบไฟฟ้าและ</p>
+        <p class="thai-distributed-plain">อุปกรณ์ทุกชนิด หลังเสร็จสิ้นการประชุม</p>
       </div>
       <p style="font-size:10pt">
         และมอบหมายให้ ${booker}&nbsp;&nbsp;<br />
         ตำแหน่ง ${position}&nbsp;&nbsp;<br />
         หมายเลขโทรศัพท์ ${phone}&nbsp;&nbsp;เป็นผู้รับผิดชอบ
       </p>
-      <p class="tab-2">จึงเรียนมาเพื่อโปรดทราบและพิจารณาดำเนินการต่อไป</p><br /><br />
+      <p class="tab-2">จึงเรียนมาเพื่อโปรดทราบและพิจารณาดำเนินการข้างต้นต่อไป</p><br /><br />
       <p style="padding-left:8em">ลงชื่อ...........................................................</p>
       <p style="padding-left:11.5em">( ............................................ )</p>
       <p style="padding-left:8em">ตำแหน่ง ......................................................</p>
@@ -388,7 +417,7 @@ function buildPrintHtml(
     <div class="col-right">
       <div class="office-box">
         <div class="en">MEETING ROOM RESERVATION FORM</div>
-        <div>เลขที่ ......................&nbsp;&nbsp; วันที่ ........../........../..........&nbsp;&nbsp; เวลา ............. น.</div>
+        <div>${officeHeaderLine}</div>
       </div>
 
       <div class="staff-block">
@@ -459,10 +488,11 @@ function buildPrintHtml(
 export const generateReservationPDF = async (
   formData: Record<string, unknown>,
   rooms: MeetingRoom[] = DEFAULT_MEETING_ROOMS,
+  mode: ReservationPrintMode = "booking",
 ) => {
   try {
     const enriched = await enrichMultiDayData(formData);
-    const html = buildPrintHtml(enriched, rooms);
+    const html = buildPrintHtml(enriched, rooms, mode);
     const win = window.open("", "_blank");
     if (!win) {
       alert("เบราว์เซอร์บล็อกหน้าต่างป๊อปอัป กรุณาอนุญาตแล้วลองใหม่");

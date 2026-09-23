@@ -30,6 +30,7 @@ import { useAdminProfile } from "@/contexts/AdminProfileContext";
 import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { useToast } from "@/hooks/use-toast";
 import { sendTelegramApprovalNotification } from "@/lib/telegram";
+import { approveReservationWithOfficialDoc } from "@/lib/officialPrintNumber";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, getDocs } from "firebase/firestore";
 
@@ -99,8 +100,11 @@ export default function AdminDashboard() {
     }
     try {
       if (newStatus === "approved") {
-        await updateDoc(doc(db, "reservations", id), { status: "approved" });
-        toast({ title: "อนุมัติแล้ว", description: "รายการจองได้รับการอนุมัติเรียบร้อย" });
+        const { officialDocNumber } = await approveReservationWithOfficialDoc(id);
+        toast({
+          title: "อนุมัติแล้ว",
+          description: `เลขที่เอกสาร ${officialDocNumber}`,
+        });
         const tg = await sendTelegramApprovalNotification({
           room: reservation.room,
           date: reservation.date,

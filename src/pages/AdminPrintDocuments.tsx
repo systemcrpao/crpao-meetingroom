@@ -6,8 +6,10 @@ import { resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
 import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { openReservationTablePrint } from "@/lib/reservationPrintTable";
 import { generateReservationPDF } from "@/lib/pdfGenerator";
+import { ensureOfficialDocMeta } from "@/lib/officialPrintNumber";
 import { cn } from "@/lib/utils";
 import { buddhistYearSelectLabel, formatDateThaiBE } from "@/lib/thaiDate";
+import { useToast } from "@/hooks/use-toast";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +41,7 @@ const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondar
 };
 
 export default function AdminPrintDocuments() {
+  const { toast } = useToast();
   const { activeRooms, allRooms } = useMeetingRooms();
   const [reservations, setReservations] = useState<any[]>([]);
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
@@ -86,8 +89,32 @@ export default function AdminPrintDocuments() {
     });
   };
 
-  const handlePrintForm = (row: Record<string, unknown>) => {
-    void generateReservationPDF(row, allRooms);
+  const handlePrintForm = async (row: Record<string, unknown> & { id: string; status?: string }) => {
+    if (row.status !== "approved") return;
+    try {
+      const meta = await ensureOfficialDocMeta({
+        id: row.id,
+        status: row.status,
+        officialDocNumber: row.officialDocNumber as string | undefined,
+        approvedAt: row.approvedAt,
+      });
+      await generateReservationPDF(
+        {
+          ...row,
+          officialDocNumber: meta.officialDocNumber,
+          approvedAt: meta.approvedAt.toISOString(),
+        },
+        allRooms,
+        "official",
+      );
+    } catch (e) {
+      console.error(e);
+      toast({
+        title: "พิมพ์แบบฟอร์มไม่สำเร็จ",
+        description: "ไม่สามารถออกเลขที่เอกสารหรือเปิดแบบฟอร์มได้",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -252,7 +279,7 @@ export default function AdminPrintDocuments() {
             </Table>
           </div>
           <p className="text-xs text-muted-foreground">
-            แสดง {filteredRows.length} รายการ · ปุ่มพิมพ์ด้านบนส่งออกตาราง (A4 แนวนอน) · ไอคอนเครื่องพิมพ์แสดงเฉพาะรายการที่อนุมัติแล้ว (แบบฟอร์ม A4 แนวตั้ง)
+            แสดง {filteredRows.length} รายการ · ไอคอนพิมพ์ (อนุมัติแล้ว) เปิดแบบฟอร์มเต็มพร้อมเลขที่ 1/2569 ตามวันเวลาอนุมัติ · ผู้จองทั่วไปได้แค่รายละเอียดการจอง
           </p>
         </CardContent>
       </Card>

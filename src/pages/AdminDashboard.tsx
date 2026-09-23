@@ -90,6 +90,7 @@ export default function AdminDashboard() {
       if (!canApproveRoom(profile, r.room)) return false;
       const cr = r.changeRequest as ChangeRequest | undefined;
       if (r.status === "pending" && !cr?.type) return true;
+      if (r.status === "pending" && cr?.type === "edit") return true;
       if (r.status === "approved" && cr?.type) {
         if (cr.type === "cancel") {
           const tn = String(r.trackingNumber ?? r.id);
@@ -143,7 +144,13 @@ export default function AdminDashboard() {
       if (cr?.type === "edit") {
         if (newStatus === "approved") {
           await approveEditChangeRequest(id);
-          toast({ title: "อนุมัติการแก้ไขแล้ว", description: "อัปเดตวันและเวลาในปฏิทินแล้ว" });
+          const wasPending = reservation.status === "pending";
+          toast({
+            title: "อนุมัติการแก้ไขแล้ว",
+            description: wasPending
+              ? "บันทึกวัน/เวล/ห้องตามคำขอแล้ว (รายการยังรออนุมัติจอง)"
+              : "อัปเดตวัน เวลา และห้องในปฏิทินแล้ว",
+          });
         } else {
           await rejectChangeRequest(reservation);
           toast({ title: "ไม่อนุมัติคำขอแก้ไข", description: "คงวันและเวลาเดิม" });

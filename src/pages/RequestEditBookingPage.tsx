@@ -84,8 +84,8 @@ export default function RequestEditBookingPage() {
         }
 
         const first = list[0];
-        if (first.status !== "approved") {
-          setLoadError("แก้ไขได้เฉพาะรายการที่อนุมัติแล้ว");
+        if (first.status !== "approved" && first.status !== "pending") {
+          setLoadError("ไม่สามารถแก้ไขรายการในสถานะนี้ได้");
           setMeta(first);
           setRows([]);
           return;
@@ -194,9 +194,12 @@ export default function RequestEditBookingPage() {
           endTime: row.endTime,
         });
       }
+      const isPendingBooking = meta?.status === "pending";
       toast({
-        title: "ส่งคำขอแก้ไขแล้ว",
-        description: "รอเจ้าหน้าที่อนุมัติ ระบบจะอัปเดตปฏิทินเมื่ออนุมัติ",
+        title: isPendingBooking ? "บันทึกการแก้ไขแล้ว" : "ส่งคำขอแก้ไขแล้ว",
+        description: isPendingBooking
+          ? "อัปเดตรายการจองแล้ว ยังรอเจ้าหน้าที่อนุมัติการจอง"
+          : "รอเจ้าหน้าที่อนุมัติ ระบบจะอัปเดตปฏิทินเมื่ออนุมัติ",
       });
       navigate(`/tracking?code=${trackingCode}`);
     } catch (e: unknown) {
@@ -211,11 +214,14 @@ export default function RequestEditBookingPage() {
     setCanceling(true);
     try {
       await submitCancelChangeRequest(trackingCode);
+      const isPendingBooking = meta?.status === "pending";
       toast({
-        title: "ส่งคำขอยกเลิกแล้ว",
-        description: "รอเจ้าหน้าที่อนุมัติ การจองจะถูกลบออกจากปฏิทินเมื่ออนุมัติ",
+        title: isPendingBooking ? "ยกเลิกการจองแล้ว" : "ส่งคำขอยกเลิกแล้ว",
+        description: isPendingBooking
+          ? "ลบคำขอจองออกจากระบบแล้ว"
+          : "รอเจ้าหน้าที่อนุมัติ การจองจะถูกลบออกจากปฏิทินเมื่ออนุมัติ",
       });
-      navigate(`/tracking?code=${trackingCode}`);
+      navigate(isPendingBooking ? "/tracking" : `/tracking?code=${trackingCode}`);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "ส่งคำขอไม่สำเร็จ";
       toast({ title: "ไม่สามารถส่งคำขอได้", description: msg, variant: "destructive" });
@@ -234,12 +240,14 @@ export default function RequestEditBookingPage() {
 
         <Card className="shadow-md">
           <CardHeader>
-            <CardTitle>ขอแก้ไขการจอง</CardTitle>
+            <CardTitle>{meta?.status === "pending" ? "แก้ไขการจอง" : "ขอแก้ไขการจอง"}</CardTitle>
             <CardDescription>
               หมายเลขติดตาม{" "}
               <span className="font-mono font-semibold tracking-widest">{trackingCode || "—"}</span>
               {" · "}
-              แก้ไขได้เฉพาะห้องประชุม วัน และเวลา (เลือกวันย้อนหลังไม่ได้)
+              {meta?.status === "pending"
+                ? "รออนุมัติอยู่ — แก้ไขห้อง วัน เวลาได้ทันที (เลือกวันย้อนหลังไม่ได้)"
+                : "แก้ไขห้อง วัน และเวลา — บันทึกแล้วรอเจ้าหน้าที่อนุมัติอีกครั้ง"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -362,7 +370,11 @@ export default function RequestEditBookingPage() {
 
                 <Button className="w-full gap-2" onClick={handleSave} disabled={saving}>
                   <Save className="h-4 w-4" />
-                  {saving ? "กำลังส่งคำขอ..." : "บันทึกคำขอแก้ไข (รออนุมัติ)"}
+                  {saving
+                    ? "กำลังบันทึก..."
+                    : meta?.status === "pending"
+                      ? "บันทึกการแก้ไข"
+                      : "บันทึกคำขอแก้ไข (รออนุมัติ)"}
                 </Button>
 
                 <Separator />

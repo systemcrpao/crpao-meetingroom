@@ -70,21 +70,43 @@ export async function submitEditChangeRequest(
   }
 
   const dateStr = format(payload.date, "yyyy-MM-dd");
+  const targetRoom = room.trim();
   const conflict = await findReservationOverlap(
-    room.trim(),
+    targetRoom,
     dateStr,
     payload.startTime,
     payload.endTime,
     [reservationId],
   );
   if (conflict) {
-    throw new Error(overlapErrorMessage(room, dateStr, conflict));
+    throw new Error(overlapErrorMessage(targetRoom, dateStr, conflict));
   }
 
-  await updateDoc(doc(db, "reservations", reservationId), {
+  const ref = doc(db, "reservations", reservationId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("ไม่พบรายการจอง");
+
+  const status = String(snap.data().status ?? "");
+
+  // รออนุมัติครั้งแรก — แก้ไขลงปฏิทินได้เลย (ยังเป็น pending)
+  if (status === "pending") {
+    await updateDoc(ref, {
+      room: targetRoom,
+      date: dateStr,
+      startTime: payload.startTime,
+      endTime: payload.endTime,
+    });
+    return;
+  }
+
+  if (status !== "approved") {
+    throw new Error("ไม่สามารถแก้ไขรายการในสถานะนี้ได้");
+  }
+
+  await updateDoc(ref, {
     changeRequest: {
       type: "edit",
-      room: room.trim(),
+      room: targetRoom,
       date: dateStr,
       startTime: payload.startTime,
       endTime: payload.endTime,
@@ -98,6 +120,16 @@ export async function submitCancelChangeRequest(trackingNumber: string): Promise
   if (rows.length === 0) throw new Error("ไม่พบรายการจอง");
 
   const batch = writeBatch(db);
+
+  // ยังไม่เคยอนุมัติ — ลบคำขอจองได้ทันที
+  if (rows.every((r) => r.status === "pending")) {
+    for (const row of rows) {
+      batch.delete(doc(db, "reservations", row.id));
+    }
+    await batch.commit();
+    return;
+  }
+
   for (const row of rows) {
     batch.update(doc(db, "reservations", row.id), {
       changeRequest: { type: "cancel" },

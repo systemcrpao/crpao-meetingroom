@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { formatDateThaiLongBE } from "@/lib/thaiDate";
-import { Search, FileText, Clock, CheckCircle2, Circle, Printer, PencilLine } from "lucide-react";
+import { Search, FileText, Clock, CheckCircle2, Circle, Printer, PencilLine, Ban } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { hasPendingChangeRequest } from "@/lib/reservationChangeRequest";
 import { cn } from "@/lib/utils";
 import { resolveRoom, roomColorClass, getRoomLabel } from "@/lib/mockData";
@@ -16,11 +17,53 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
-const STEPS = [
+type TrackingStep = {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  description: string;
+};
+
+const BASE_STEPS: TrackingStep[] = [
   { key: "submitted", label: "จองผ่านระบบ", icon: FileText, description: "ส่งแบบฟอร์มจองเรียบร้อย" },
-  { key: "pending",   label: "รออนุมัติ",   icon: Clock,     description: "รอเจ้าหน้าที่ตรวจสอบ" },
-  { key: "approved",  label: "อนุมัติแล้ว",  icon: CheckCircle2, description: "การจองได้รับการอนุมัติ" },
+  { key: "pending", label: "รออนุมัติ", icon: Clock, description: "รอเจ้าหน้าที่ตรวจสอบ" },
+  { key: "approved", label: "อนุมัติแล้ว", icon: CheckCircle2, description: "การจองได้รับการอนุมัติ" },
 ];
+
+function buildTrackingSteps(reservation: {
+  changeRequest?: { type?: string };
+} | null, pendingChange: boolean): TrackingStep[] {
+  const steps = [...BASE_STEPS];
+  if (!reservation || !pendingChange) return steps;
+
+  if (reservation.changeRequest?.type === "cancel") {
+    steps.push({
+      key: "change_cancel",
+      label: "รออนุมัติยกเลิก",
+      icon: Ban,
+      description: "รอเจ้าหน้าที่อนุมัติการยกเลิก",
+    });
+  } else {
+    steps.push({
+      key: "change_edit",
+      label: "รออนุมัติแก้ไข",
+      icon: PencilLine,
+      description: "รอเจ้าหน้าที่อนุมัติการแก้ไข",
+    });
+  }
+  return steps;
+}
+
+function getTrackingStepIndex(
+  status: string,
+  pendingChange: boolean,
+  stepCount: number,
+): number {
+  if (pendingChange) return stepCount - 1;
+  if (status === "approved") return 2;
+  if (status === "pending") return 1;
+  return 0;
+}
 
 export default function TrackingPage() {
   const navigate = useNavigate();
@@ -78,21 +121,40 @@ export default function TrackingPage() {
     if (e.key === "Enter") handleSearch();
   };
 
-  // Determine progress step index
-  const getStepIndex = (status: string) => {
-    if (status === "approved") return 2;
-    if (status === "pending") return 1;
-    return 0; // submitted
-  };
+  const pendingChange = !!(reservation && hasPendingChangeRequest(reservation));
+  const trackingSteps = useMemo(
+    () => buildTrackingSteps(reservation, pendingChange),
+    [reservation, pendingChange],
+  );
+  const currentStep = reservation
+    ? getTrackingStepIndex(reservation.status, pendingChange, trackingSteps.length)
+    : -1;
 
-  const currentStep = reservation ? getStepIndex(reservation.status) : -1;
-  const pendingChange = reservation && hasPendingChangeRequest(reservation);
   const canRequestEdit =
-    reservation?.status === "approved" && !pendingChange && reservation?.trackingNumber;
+    !!reservation?.trackingNumber &&
+    !pendingChange &&
+    (reservation.status === "approved" || reservation.status === "pending");
+
+  const displayRoom =
+    pendingChange && reservation?.changeRequest?.type === "edit" && reservation.changeRequest.room
+      ? reservation.changeRequest.room
+      : reservation?.room;
+  const displayDate =
+    pendingChange && reservation?.changeRequest?.type === "edit" && reservation.changeRequest.date
+      ? reservation.changeRequest.date
+      : reservation?.date;
+  const displayStart =
+    pendingChange && reservation?.changeRequest?.type === "edit" && reservation.changeRequest.startTime
+      ? reservation.changeRequest.startTime
+      : reservation?.startTime;
+  const displayEnd =
+    pendingChange && reservation?.changeRequest?.type === "edit" && reservation.changeRequest.endTime
+      ? reservation.changeRequest.endTime
+      : reservation?.endTime;
 
   return (
     <div className="min-h-[70vh] flex items-start justify-center pt-10 px-4">
-      <div className="w-full max-w-lg space-y-6">
+      <div className={cn("w-full space-y-6", trackingSteps.length > 3 ? "max-w-2xl" : "max-w-lg")}>
         {/* Search Card */}
         <Card className="shadow-md">
           <CardHeader className="text-center pb-3">
@@ -165,27 +227,28 @@ export default function TrackingPage() {
             </div>
 
             <CardContent className="p-5 space-y-5">
-              {/* 3-Step Progress */}
+              {/* Progress steps */}
               <div className="relative">
-                <div className="flex items-start justify-between">
-                  {STEPS.map((step, i) => {
-                    const isCompleted = i <= currentStep;
-                    const isCurrent = i === currentStep;
+                <div className="flex items-start justify-between gap-1">
+                  {trackingSteps.map((step, i) => {
+                    const fullyDone =
+                      !pendingChange && reservation.status === "approved" && i < BASE_STEPS.length;
+                    const isCompleted = fullyDone || i < currentStep;
+                    const isCurrent = !fullyDone && i === currentStep;
                     const StepIcon = step.icon;
                     return (
-                      <div key={step.key} className="flex flex-col items-center text-center flex-1 relative z-10">
-                        {/* Circle */}
+                      <div key={step.key} className="flex flex-col items-center text-center flex-1 relative z-10 min-w-0">
                         <div
                           className={cn(
-                            "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all",
-                            isCompleted
-                              ? isCurrent
-                                ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/30 scale-110"
-                                : "bg-primary/80 border-primary/80 text-primary-foreground"
-                              : "bg-muted border-muted-foreground/30 text-muted-foreground"
+                            "w-10 h-10 shrink-0 rounded-full flex items-center justify-center border-2 transition-all",
+                            isCurrent
+                              ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/30 scale-110"
+                              : isCompleted
+                                ? "bg-primary/80 border-primary/80 text-primary-foreground"
+                                : "bg-muted border-muted-foreground/30 text-muted-foreground",
                           )}
                         >
-                          {isCompleted && !isCurrent ? (
+                          {isCompleted ? (
                             <CheckCircle2 className="h-5 w-5" />
                           ) : isCurrent ? (
                             <StepIcon className="h-5 w-5 animate-pulse" />
@@ -193,19 +256,18 @@ export default function TrackingPage() {
                             <Circle className="h-5 w-5" />
                           )}
                         </div>
-                        {/* Label */}
                         <p
                           className={cn(
-                            "text-xs font-semibold mt-2",
-                            isCompleted ? "text-primary" : "text-muted-foreground"
+                            "text-[11px] sm:text-xs font-semibold mt-2 leading-tight",
+                            isCurrent || isCompleted ? "text-primary" : "text-muted-foreground",
                           )}
                         >
                           {step.label}
                         </p>
                         <p
                           className={cn(
-                            "text-[10px] mt-0.5 max-w-[100px]",
-                            isCompleted ? "text-foreground/70" : "text-muted-foreground/60"
+                            "text-[9px] sm:text-[10px] mt-0.5 max-w-[88px] sm:max-w-[100px] leading-snug",
+                            isCurrent || isCompleted ? "text-foreground/70" : "text-muted-foreground/60",
                           )}
                         >
                           {step.description}
@@ -215,25 +277,26 @@ export default function TrackingPage() {
                   })}
                 </div>
 
-                {/* Connector lines */}
-                <div className="absolute top-5 left-0 right-0 flex px-[16.5%]" style={{ zIndex: 0 }}>
-                  <div className="flex-1 h-0.5 mx-1">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all",
-                        currentStep >= 1 ? "bg-primary" : "bg-muted-foreground/20"
-                      )}
-                    />
+                {trackingSteps.length > 1 && (
+                  <div
+                    className="absolute top-5 left-0 right-0 grid items-center px-[10%]"
+                    style={{
+                      zIndex: 0,
+                      gridTemplateColumns: `repeat(${trackingSteps.length - 1}, 1fr)`,
+                    }}
+                  >
+                    {trackingSteps.slice(0, -1).map((_, i) => (
+                      <div key={i} className="h-0.5 px-2">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            currentStep > i ? "bg-primary" : "bg-muted-foreground/20",
+                          )}
+                        />
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex-1 h-0.5 mx-1">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all",
-                        currentStep >= 2 ? "bg-primary" : "bg-muted-foreground/20"
-                      )}
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
               <Separator />
@@ -247,22 +310,43 @@ export default function TrackingPage() {
                     <p className="font-medium">{reservation.topic}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">ห้องประชุม</p>
-                    <Badge variant="outline" className={cn("text-xs mt-0.5", roomColorClass(reservation.room, true, allRooms))}>
-                      {getRoomLabel(reservation.room, allRooms)}
+                    <p className="text-xs text-muted-foreground">
+                      ห้องประชุม
+                      {pendingChange && reservation.changeRequest?.type === "edit" && (
+                        <span className="text-sky-600"> (ที่ขอแก้ไข)</span>
+                      )}
+                    </p>
+                    <Badge
+                      variant="outline"
+                      className={cn("text-xs mt-0.5", roomColorClass(displayRoom, true, allRooms))}
+                    >
+                      {getRoomLabel(displayRoom, allRooms)}
                     </Badge>
+                    {pendingChange &&
+                      reservation.changeRequest?.type === "edit" &&
+                      reservation.changeRequest.room &&
+                      reservation.changeRequest.room !== reservation.room && (
+                        <p className="text-[10px] text-muted-foreground mt-1 line-through">
+                          เดิม: {getRoomLabel(reservation.room, allRooms)}
+                        </p>
+                      )}
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">วันที่</p>
+                    <p className="text-xs text-muted-foreground">
+                      วันที่
+                      {pendingChange && reservation.changeRequest?.type === "edit" && (
+                        <span className="text-sky-600"> (ที่ขอแก้ไข)</span>
+                      )}
+                    </p>
                     <p className="font-medium">
-                      {reservation.date
-                        ? formatDateThaiLongBE(reservation.date)
-                        : "-"}
+                      {displayDate ? formatDateThaiLongBE(displayDate) : "-"}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">เวลา</p>
-                    <p className="font-medium">{reservation.startTime}–{reservation.endTime} น.</p>
+                    <p className="font-medium">
+                      {displayStart}–{displayEnd} น.
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">หน่วยงาน</p>
@@ -294,7 +378,7 @@ export default function TrackingPage() {
                   onClick={() => navigate(`/tracking/${reservation.trackingNumber}/edit`)}
                 >
                   <PencilLine className="h-4 w-4" />
-                  ขอแก้ไขการจอง
+                  {reservation.status === "pending" ? "แก้ไขการจอง" : "ขอแก้ไขการจอง"}
                 </Button>
               )}
 

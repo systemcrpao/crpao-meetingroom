@@ -236,7 +236,7 @@ function buildPrintHtml(
     .col-left {
       width: 50%;
       flex: 0 0 50%;
-      padding-right: 6mm;
+      padding-right: 4mm;
       overflow-wrap: anywhere;
       word-break: keep-all;
       overflow: hidden;

@@ -189,11 +189,11 @@ export default function AdminPrintDocuments() {
                   <TableHead>วันที่</TableHead>
                   <TableHead className="whitespace-nowrap">เวลา</TableHead>
                   <TableHead>ห้อง</TableHead>
-                  <TableHead className="min-w-[220px]">เรื่อง</TableHead>
-                  <TableHead className="min-w-[180px]">หน่วยงาน</TableHead>
+                  <TableHead className="min-w-[150px]">เรื่อง</TableHead>
+                  <TableHead className="min-w-[100px]">หน่วยงาน</TableHead>
                   <TableHead>ผู้จอง</TableHead>
                   <TableHead className="text-center">สถานะ</TableHead>
-                  <TableHead className="w-14 text-center">พิมพ์แบบฟอร์ม</TableHead>
+                  <TableHead className="w-14 text-center">พิมพ์</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -231,17 +231,19 @@ export default function AdminPrintDocuments() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-primary"
-                          title="พิมพ์แบบฟอร์มจองห้องประชุม (A4)"
-                          aria-label="พิมพ์แบบฟอร์มจองห้องประชุม"
-                          onClick={() => handlePrintForm(r)}
-                        >
-                          <Printer className="h-4 w-4" />
-                        </Button>
+                        {r.status === "approved" ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-primary"
+                            title="พิมพ์แบบฟอร์มจองห้องประชุม (A4)"
+                            aria-label="พิมพ์แบบฟอร์มจองห้องประชุม"
+                            onClick={() => handlePrintForm(r)}
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   ))
@@ -250,7 +252,7 @@ export default function AdminPrintDocuments() {
             </Table>
           </div>
           <p className="text-xs text-muted-foreground">
-            แสดง {filteredRows.length} รายการ · ปุ่มพิมพ์ด้านบนส่งออกตาราง (A4 แนวนอน) · ไอคอนเครื่องพิมพ์ในแต่ละแถวเปิดแบบฟอร์มจอง (A4 แนวตั้ง) เหมือนหน้าจอง
+            แสดง {filteredRows.length} รายการ · ปุ่มพิมพ์ด้านบนส่งออกตาราง (A4 แนวนอน) · ไอคอนเครื่องพิมพ์แสดงเฉพาะรายการที่อนุมัติแล้ว (แบบฟอร์ม A4 แนวตั้ง)
           </p>
         </CardContent>
       </Card>

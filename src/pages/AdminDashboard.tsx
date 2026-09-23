@@ -31,6 +31,12 @@ import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { useToast } from "@/hooks/use-toast";
 import { sendTelegramApprovalNotification } from "@/lib/telegram";
 import { approveReservationWithOfficialDoc } from "@/lib/officialPrintNumber";
+import {
+  approveCancelChangeRequest,
+  approveEditChangeRequest,
+  rejectChangeRequest,
+  type ChangeRequest,
+} from "@/lib/reservationChangeRequest";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, getDocs } from "firebase/firestore";
 
@@ -78,18 +84,41 @@ export default function AdminDashboard() {
     return () => unsubscribe();
   }, []);
 
-  const pendingReservations = reservations.filter(
-    (r) => r.status === "pending" && canApproveRoom(profile, r.room),
-  );
+  const pendingReservations = useMemo(() => {
+    const seenCancelTracking = new Set<string>();
+    return reservations.filter((r) => {
+      if (!canApproveRoom(profile, r.room)) return false;
+      const cr = r.changeRequest as ChangeRequest | undefined;
+      if (r.status === "pending" && !cr?.type) return true;
+      if (r.status === "approved" && cr?.type) {
+        if (cr.type === "cancel") {
+          const tn = String(r.trackingNumber ?? r.id);
+          if (seenCancelTracking.has(tn)) return false;
+          seenCancelTracking.add(tn);
+          return true;
+        }
+        return true;
+      }
+      return false;
+    });
+  }, [reservations, profile]);
   const approvedReservations = reservations.filter((r) => r.status === "approved");
   const totalPendingPages = Math.max(1, Math.ceil(pendingReservations.length / ITEMS_PER_PAGE));
   const paginatedPending = pendingReservations.slice((pendingPage - 1) * ITEMS_PER_PAGE, pendingPage * ITEMS_PER_PAGE);
 
   const handleUpdateStatus = async (
-    reservation: { id: string; room: string; date?: string; trackingNumber?: string },
+    reservation: {
+      id: string;
+      room: string;
+      date?: string;
+      trackingNumber?: string;
+      status?: string;
+      changeRequest?: ChangeRequest;
+    },
     newStatus: "approved" | "rejected",
   ) => {
     const { id, room } = reservation;
+    const cr = reservation.changeRequest;
     if (!canApproveRoom(profile, room)) {
       toast({
         title: "ไม่มีสิทธิ์",
@@ -99,6 +128,29 @@ export default function AdminDashboard() {
       return;
     }
     try {
+      if (cr?.type === "cancel") {
+        if (newStatus === "approved") {
+          if (!reservation.trackingNumber) throw new Error("ไม่พบหมายเลขติดตาม");
+          await approveCancelChangeRequest(reservation.trackingNumber);
+          toast({ title: "อนุมัติยกเลิกแล้ว", description: "ลบการจองออกจากปฏิทินแล้ว" });
+        } else {
+          await rejectChangeRequest(reservation);
+          toast({ title: "ไม่อนุมัติคำขอยกเลิก", description: "การจองยังคงอยู่ตามเดิม" });
+        }
+        return;
+      }
+
+      if (cr?.type === "edit") {
+        if (newStatus === "approved") {
+          await approveEditChangeRequest(id, room);
+          toast({ title: "อนุมัติการแก้ไขแล้ว", description: "อัปเดตวันและเวลาในปฏิทินแล้ว" });
+        } else {
+          await rejectChangeRequest(reservation);
+          toast({ title: "ไม่อนุมัติคำขอแก้ไข", description: "คงวันและเวลาเดิม" });
+        }
+        return;
+      }
+
       if (newStatus === "approved") {
         const { officialDocNumber } = await approveReservationWithOfficialDoc(id);
         toast({
@@ -118,15 +170,15 @@ export default function AdminDashboard() {
           });
         }
       } else {
-        // ปฏิเสธ → ลบออกจากฐานข้อมูลเลย
         await deleteDoc(doc(db, "reservations", id));
         toast({ title: "ปฏิเสธและลบแล้ว", description: "รายการจองถูกปฏิเสธและลบออกจากระบบแล้ว", variant: "destructive" });
       }
     } catch (error) {
       console.error("Error updating status:", error);
+      const msg = error instanceof Error ? error.message : "ไม่สามารถดำเนินการได้ กรุณาลองใหม่";
       toast({
         title: "เกิดข้อผิดพลาด",
-        description: "ไม่สามารถดำเนินการได้ กรุณาลองใหม่",
+        description: msg,
         variant: "destructive",
       });
     }
@@ -259,13 +311,49 @@ export default function AdminDashboard() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs whitespace-nowrap">
-                        {r.date ? formatDateThaiBE(r.date) : "-"}
-                        <br />
-                        {r.startTime}-{r.endTime}
+                        {r.changeRequest?.type === "edit" ? (
+                          <>
+                            <span className="text-muted-foreground">
+                              เดิม: {r.date ? formatDateThaiBE(r.date) : "-"} {r.startTime}-{r.endTime}
+                            </span>
+                            <br />
+                            <span className="text-primary font-medium">
+                              ขอเปลี่ยน:{" "}
+                              {r.changeRequest.date ? formatDateThaiBE(r.changeRequest.date) : "-"} {r.changeRequest.startTime}-
+                              {r.changeRequest.endTime}
+                            </span>
+                          </>
+                        ) : r.changeRequest?.type === "cancel" ? (
+                          <>
+                            {r.date ? formatDateThaiBE(r.date) : "-"}
+                            <br />
+                            {r.startTime}-{r.endTime}
+                            <br />
+                            <span className="text-destructive font-medium">ขอยกเลิกการจองทั้งหมด</span>
+                          </>
+                        ) : (
+                          <>
+                            {r.date ? formatDateThaiBE(r.date) : "-"}
+                            <br />
+                            {r.startTime}-{r.endTime}
+                          </>
+                        )}
                       </TableCell>
                       <TableCell className="text-xs">{r.bookerName}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="text-xs">รออนุมัติ</Badge>
+                        {r.changeRequest?.type === "edit" ? (
+                          <Badge variant="secondary" className="text-xs bg-sky-100 text-sky-800">
+                            ขอแก้ไข
+                          </Badge>
+                        ) : r.changeRequest?.type === "cancel" ? (
+                          <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+                            ขอยกเลิก
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            รออนุมัติ
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">

@@ -17,6 +17,7 @@ import ManageReservations from "@/pages/ManageReservations";
 import ReportDashboard from "@/pages/ReportDashboard";
 import AdminPermissions from "@/pages/AdminPermissions";
 import TrackingPage from "@/pages/TrackingPage";
+import RequestEditBookingPage from "@/pages/RequestEditBookingPage";
 import NotFound from "./pages/NotFound";
 
 /** รองรับ GitHub Pages (subpath) ผ่าน Vite `base` */
@@ -106,6 +107,14 @@ function AppRoutes() {
         element={
           <UserLayout>
             <TrackingPage />
+          </UserLayout>
+        }
+      />
+      <Route
+        path="/tracking/:code/edit"
+        element={
+          <UserLayout>
+            <RequestEditBookingPage />
           </UserLayout>
         }
       />

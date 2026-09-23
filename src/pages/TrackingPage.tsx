@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { formatDateThaiLongBE } from "@/lib/thaiDate";
-import { Search, FileText, Clock, CheckCircle2, CircleDot, Circle, Printer } from "lucide-react";
+import { Search, FileText, Clock, CheckCircle2, Circle, Printer, PencilLine } from "lucide-react";
+import { hasPendingChangeRequest } from "@/lib/reservationChangeRequest";
 import { cn } from "@/lib/utils";
 import { resolveRoom, roomColorClass, getRoomLabel } from "@/lib/mockData";
 import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
@@ -21,6 +23,8 @@ const STEPS = [
 ];
 
 export default function TrackingPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { activeRooms, allRooms } = useMeetingRooms();
   const [trackingCode, setTrackingCode] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -28,8 +32,8 @@ export default function TrackingPage() {
   const [reservation, setReservation] = useState<any | null>(null);
   const [error, setError] = useState("");
 
-  const handleSearch = async () => {
-    const code = trackingCode.trim().toUpperCase();
+  const runSearch = async (codeInput: string) => {
+    const code = codeInput.trim().toUpperCase();
     if (!code) {
       setError("กรุณากรอกหมายเลขติดตาม");
       return;
@@ -45,8 +49,9 @@ export default function TrackingPage() {
       if (snap.empty) {
         setReservation(null);
       } else {
-        const docData = snap.docs[0];
-        setReservation({ id: docData.id, ...docData.data() });
+        const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const withChange = docs.find((d) => hasPendingChangeRequest(d));
+        setReservation(withChange ?? docs[0]);
       }
       setSearched(true);
     } catch (err) {
@@ -56,6 +61,18 @@ export default function TrackingPage() {
       setIsSearching(false);
     }
   };
+
+  const handleSearch = () => runSearch(trackingCode);
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("code");
+    if (fromUrl) {
+      const c = fromUrl.trim().toUpperCase();
+      setTrackingCode(c);
+      runSearch(c);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleSearch();
@@ -69,6 +86,9 @@ export default function TrackingPage() {
   };
 
   const currentStep = reservation ? getStepIndex(reservation.status) : -1;
+  const pendingChange = reservation && hasPendingChangeRequest(reservation);
+  const canRequestEdit =
+    reservation?.status === "approved" && !pendingChange && reservation?.trackingNumber;
 
   return (
     <div className="min-h-[70vh] flex items-start justify-center pt-10 px-4">
@@ -125,13 +145,21 @@ export default function TrackingPage() {
                 <Badge
                   className={cn(
                     "text-xs px-2.5 py-1",
-                    reservation.status === "approved"
-                      ? "bg-green-500/20 text-green-100 border-green-400/40"
-                      : "bg-amber-500/20 text-amber-100 border-amber-400/40"
+                    pendingChange
+                      ? "bg-sky-500/20 text-sky-100 border-sky-400/40"
+                      : reservation.status === "approved"
+                        ? "bg-green-500/20 text-green-100 border-green-400/40"
+                        : "bg-amber-500/20 text-amber-100 border-amber-400/40"
                   )}
                   variant="outline"
                 >
-                  {reservation.status === "approved" ? "อนุมัติแล้ว" : "รออนุมัติ"}
+                  {pendingChange
+                    ? reservation.changeRequest?.type === "cancel"
+                      ? "รออนุมัติยกเลิก"
+                      : "รออนุมัติแก้ไข"
+                    : reservation.status === "approved"
+                      ? "อนุมัติแล้ว"
+                      : "รออนุมัติ"}
                 </Badge>
               </div>
             </div>
@@ -258,6 +286,31 @@ export default function TrackingPage() {
                 <Printer className="h-4 w-4" />
                 พิมพ์แบบฟอร์มจองห้องประชุม
               </Button>
+
+              {canRequestEdit && (
+                <Button
+                  variant="secondary"
+                  className="w-full gap-2"
+                  onClick={() => navigate(`/tracking/${reservation.trackingNumber}/edit`)}
+                >
+                  <PencilLine className="h-4 w-4" />
+                  ขอแก้ไขการจอง
+                </Button>
+              )}
+
+              {pendingChange && (
+                <p className="text-xs text-center text-muted-foreground">
+                  มีคำขอ{reservation.changeRequest?.type === "cancel" ? "ยกเลิก" : "แก้ไข"}รอเจ้าหน้าที่อนุมัติ
+                  {reservation.changeRequest?.type === "edit" && reservation.changeRequest.date && (
+                    <>
+                      {" "}
+                      (ขอเปลี่ยนเป็น{" "}
+                      {formatDateThaiLongBE(reservation.changeRequest.date)}{" "}
+                      {reservation.changeRequest.startTime}–{reservation.changeRequest.endTime} น.)
+                    </>
+                  )}
+                </p>
+              )}
             </CardContent>
           </Card>
         )}

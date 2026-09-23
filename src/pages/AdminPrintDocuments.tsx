@@ -279,7 +279,7 @@ export default function AdminPrintDocuments() {
             </Table>
           </div>
           <p className="text-xs text-muted-foreground">
-            แสดง {filteredRows.length} รายการ · ไอคอนพิมพ์ (อนุมัติแล้ว) เปิดแบบฟอร์มเต็มพร้อมเลขที่ 1/2569 ตามวันเวลาอนุมัติ · ผู้จองทั่วไปได้แค่รายละเอียดการจอง
+            แสดง {filteredRows.length} รายการ · ไอคอนพิมพ์ (อนุมัติแล้ว) ใส่เลขที่เอกสารและวันเวลาอนุมัติ · ผู้จองทั่วไปได้แบบฟอร์ม 2 ฝั่งแต่ไม่มีเลขที่
           </p>
         </CardContent>
       </Card>

@@ -177,9 +177,10 @@ function buildPrintHtml(
   const approvedAt = parseApprovedAt(data.approvedAt) ?? new Date();
   const stamp = formatApprovalStamp(approvedAt);
   const officialDocNumber = esc(data.officialDocNumber ?? "");
-  const officeHeaderLine = isOfficial && officialDocNumber
-    ? `เลขที่ ${officialDocNumber}&nbsp;&nbsp; วันที่ ${stamp.dd}/${stamp.mm}/${stamp.yyyyBE}&nbsp;&nbsp; เวลา ${stamp.hh}:${stamp.min} น.`
-    : `เลขที่ ......................&nbsp;&nbsp; วันที่ ........../........../..........&nbsp;&nbsp; เวลา ............. น.`;
+  const officeHeaderLine =
+    isOfficial && officialDocNumber
+      ? `เลขที่ ${officialDocNumber}&nbsp;&nbsp; วันที่ ${stamp.dd}/${stamp.mm}/${stamp.yyyyBE}&nbsp;&nbsp; เวลา ${stamp.hh}:${stamp.min} น.`
+      : "เลขที่ ......................&nbsp;&nbsp; วันที่ ........../........../..........&nbsp;&nbsp; เวลา ............. น.";
 
   const roomRows = rooms
     .filter((r) => r.enabled)
@@ -244,13 +245,6 @@ function buildPrintHtml(
       min-height: ${PRINTABLE_HEIGHT_MM}mm;
       align-items: stretch;
     }
-    .sheet-booking-only::before { display: none; }
-    .sheet-booking-only .col-left {
-      width: 100%;
-      flex: 0 0 100%;
-      padding-right: 0;
-    }
-    .sheet-booking-only .col-right { display: none; }
     /* เส้นแบ่งกลาง — สูงเต็มพื้นที่พิมพ์ (ไม่ขึ้นกับความสูงคอลัมน์ซ้าย) */
     .sheet::before {
       content: "";
@@ -371,7 +365,7 @@ function buildPrintHtml(
   </style>
 </head>
 <body>
-  <div class="sheet${isOfficial ? "" : " sheet-booking-only"}">
+  <div class="sheet">
     <div class="col-left">
       <div class="center">
         <div class="date-line" style="font-weight:700">หมายเลขติดตาม ${tracking}</div>

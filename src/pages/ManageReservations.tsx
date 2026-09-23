@@ -3,7 +3,8 @@ import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { Pencil, Trash2, CalendarIcon, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROOMS, TIME_SLOTS, resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
+import { TIME_SLOTS, resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
+import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import {
@@ -41,6 +42,7 @@ const STATUS_LABEL: Record<string, { text: string; variant: "secondary" | "defau
 
 export default function ManageReservations() {
   const { toast } = useToast();
+  const { activeRooms, allRooms } = useMeetingRooms();
 
   // ---- State ----
   const [reservations, setReservations] = useState<any[]>([]);
@@ -86,7 +88,7 @@ export default function ManageReservations() {
         r.bookerName?.toLowerCase().includes(q) ||
         r.department?.toLowerCase().includes(q) ||
         r.room?.toLowerCase().includes(q);
-      const matchRoom   = roomMatchesFilter(r.room ?? "", filterRoom);
+      const matchRoom   = roomMatchesFilter(r.room ?? "", filterRoom, allRooms);
       const matchStatus = filterStatus === "all" || r.status === filterStatus;
       return matchSearch && matchRoom && matchStatus;
     });
@@ -218,7 +220,7 @@ export default function ManageReservations() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">ทุกห้องประชุม</SelectItem>
-                {ROOMS.map((r) => (
+                {allRooms.map((r) => (
                   <SelectItem key={r.value} value={r.value}>{r.value}</SelectItem>
                 ))}
               </SelectContent>
@@ -273,7 +275,7 @@ export default function ManageReservations() {
                       <TableCell>
                         <Badge
                           variant="outline"
-                          className={cn("text-xs", roomColorClass(r.room, true))}
+                          className={cn("text-xs", roomColorClass(r.room, true, allRooms))}
                         >
                           {resolveRoom(r.room)}
                         </Badge>
@@ -395,7 +397,7 @@ export default function ManageReservations() {
               <Select value={editRoom} onValueChange={setEditRoom}>
                 <SelectTrigger><SelectValue placeholder="เลือกห้องประชุม" /></SelectTrigger>
                 <SelectContent>
-                  {ROOMS.map((r) => (
+                  {allRooms.map((r) => (
                     <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                   ))}
                 </SelectContent>

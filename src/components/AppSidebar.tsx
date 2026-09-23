@@ -6,6 +6,8 @@ import {
   BarChart3,
   FileSearch,
   Shield,
+  DoorOpen,
+  Printer,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -31,9 +33,11 @@ const adminToolNavItems = [
   { title: "แดชบอร์ดสำหรับอนุมัติ", url: "/admin", icon: LayoutDashboard },
   { title: "จัดการการจอง", url: "/admin/manage", icon: ListChecks },
   { title: "รายงานการจองห้องประชุม", url: "/admin/reports", icon: BarChart3 },
+  { title: "พิมพ์เอกสาร", url: "/admin/print", icon: Printer },
 ];
 
 const superAdminNavItems = [
+  { title: "จัดการห้องประชุม", url: "/admin/rooms", icon: DoorOpen },
   { title: "กำหนดสิทธิ์ Admin", url: "/admin/permissions", icon: Shield },
 ];
 

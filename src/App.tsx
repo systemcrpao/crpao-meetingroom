@@ -5,6 +5,9 @@ import { ThemeProvider } from "next-themes";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AdminProfileProvider, useAdminProfile } from "@/contexts/AdminProfileContext";
+import { MeetingRoomsProvider } from "@/contexts/MeetingRoomsContext";
+import AdminManageRooms from "@/pages/AdminManageRooms";
+import AdminPrintDocuments from "@/pages/AdminPrintDocuments";
 import { AppLayout } from "@/components/AppLayout";
 import { UserLayout } from "@/components/UserLayout";
 import PublicPage from "@/pages/PublicPage";
@@ -145,6 +148,18 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/admin/print"
+        element={
+          <RequireAuth>
+            <RequireAdmin>
+              <AppLayout>
+                <AdminPrintDocuments />
+              </AppLayout>
+            </RequireAdmin>
+          </RequireAuth>
+        }
+      />
+      <Route
         path="/admin/permissions"
         element={
           <RequireAuth>
@@ -152,6 +167,20 @@ function AppRoutes() {
               <RequireSuperAdmin>
                 <AppLayout>
                   <AdminPermissions />
+                </AppLayout>
+              </RequireSuperAdmin>
+            </RequireAdmin>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/rooms"
+        element={
+          <RequireAuth>
+            <RequireAdmin>
+              <RequireSuperAdmin>
+                <AppLayout>
+                  <AdminManageRooms />
                 </AppLayout>
               </RequireSuperAdmin>
             </RequireAdmin>
@@ -188,9 +217,11 @@ const App = () => (
         <FirebaseConfigNotice />
       ) : (
         <AuthProvider>
-          <AdminProfileProvider>
-            <AppRoutes />
-          </AdminProfileProvider>
+          <MeetingRoomsProvider>
+            <AdminProfileProvider>
+              <AppRoutes />
+            </AdminProfileProvider>
+          </MeetingRoomsProvider>
         </AuthProvider>
       )}
       </BrowserRouter>

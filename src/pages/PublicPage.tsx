@@ -10,9 +10,11 @@ import {
   Clock, MapPin, User, Building, LayoutPanelLeft, ClipboardEdit, Flag,
 } from "lucide-react";
 import { useThaiPublicHolidays } from "@/hooks/useThaiPublicHolidays";
-import { holidayTypeLabel, shortHolidayLabel } from "@/lib/thaiPublicHolidays";
+import { holidayTypeLabel } from "@/lib/thaiPublicHolidays";
 import { cn } from "@/lib/utils";
-import { ROOMS, ROOM_COLORS, resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
+import { resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
+import { roomSolidColorClass } from "@/lib/meetingRooms";
+import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
 
@@ -62,6 +64,7 @@ export default function PublicPage() {
 
   const showCalendar = pageLayout === "both" || pageLayout === "calendar";
   const showForm = pageLayout === "both" || pageLayout === "form";
+  const { activeRooms, allRooms } = useMeetingRooms();
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "reservations"), (snap) => {
@@ -74,8 +77,10 @@ export default function PublicPage() {
   }, []);
 
   const filtered = useMemo(() =>
-    roomFilter === "all" ? reservations : reservations.filter((r) => roomMatchesFilter(r.room, roomFilter)),
-    [reservations, roomFilter]
+    roomFilter === "all"
+      ? reservations
+      : reservations.filter((r) => roomMatchesFilter(r.room, roomFilter, allRooms)),
+    [reservations, roomFilter, allRooms]
   );
 
   const getBookingsForDay = (day: Date) =>
@@ -214,7 +219,7 @@ export default function PublicPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">ทุกห้องประชุม</SelectItem>
-                      {ROOMS.map((r) => (
+                      {activeRooms.map((r) => (
                         <SelectItem key={r.value} value={r.value}>{r.value}</SelectItem>
                       ))}
                     </SelectContent>
@@ -224,9 +229,9 @@ export default function PublicPage() {
               {/* Legend + Monthly Stats */}
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1.5">
                 <div className="hidden sm:contents">
-                  {ROOMS.map((r) => (
+                  {activeRooms.map((r) => (
                     <div key={r.value} className="flex items-center gap-1">
-                      <div className={cn("h-2.5 w-2.5 rounded-sm", ROOM_COLORS[r.value])} />
+                      <div className={cn("h-2.5 w-2.5 rounded-sm", roomSolidColorClass(r.colorKey))} />
                       <span className="text-[11px] text-muted-foreground">{r.value}</span>
                     </div>
                   ))}
@@ -282,15 +287,15 @@ export default function PublicPage() {
                       )}>{d}</div>
                     ))}
                   </div>
-                  <div className="grid grid-cols-7 border-l border-t rounded-md overflow-hidden">
+                  <div className="grid grid-cols-7 border-l border-t rounded-md overflow-hidden auto-rows-fr">
                     {Array.from({ length: padStart }).map((_, i) => (
-                      <div key={`pad-${i}`} className="border-r border-b aspect-square bg-muted/20" />
+                      <div key={`pad-${i}`} className="border-r border-b min-h-[5rem] bg-muted/20" />
                     ))}
                     {days.map((day) => {
                       const bookings   = getBookingsForDay(day);
                       const dayHolidays = getHolidaysForDay(day);
                       const isHoliday  = dayHolidays.length > 0;
-                      const bookingCap = isHoliday ? 2 : 3;
+                      const bookingCap = isHoliday ? 1 : 3;
                       const isToday    = isSameDay(day, new Date());
                       const isSelected = !!selectedDay && isSameDay(day, selectedDay);
                       const inMonth    = isSameMonth(day, monthDate);
@@ -301,7 +306,8 @@ export default function PublicPage() {
                           key={day.toISOString()}
                           onClick={() => setSelectedDay(day)}
                           className={cn(
-                            "border-r border-b aspect-square p-1 flex flex-col gap-0.5 min-h-0",
+                            "border-r border-b p-1.5 flex flex-col gap-1 min-h-[5rem]",
+                            isHoliday && "min-h-[7.5rem]",
                             "cursor-pointer transition-colors select-none",
                             !inMonth && "opacity-40 bg-muted/20",
                             isToday && !isSelected && "bg-primary/5",
@@ -322,11 +328,15 @@ export default function PublicPage() {
                             {format(day, "d")}
                           </div>
                           {isHoliday && (
-                            <div
-                              className="text-[9px] leading-tight text-rose-800 dark:text-rose-200 font-medium truncate pointer-events-none"
-                              title={dayHolidays.map((h) => h.name_th).join("\n")}
-                            >
-                              {shortHolidayLabel(dayHolidays[0].name_th, 11)}
+                            <div className="flex flex-col gap-1 flex-1 pointer-events-none">
+                              {dayHolidays.map((h) => (
+                                <p
+                                  key={`${h.date}-${h.name_th}`}
+                                  className="text-[11px] sm:text-xs leading-snug text-rose-900 dark:text-rose-100 font-semibold break-words whitespace-normal"
+                                >
+                                  {h.name_th}
+                                </p>
+                              ))}
                             </div>
                           )}
                           {bookings.slice(0, bookingCap).map((r) => (
@@ -335,7 +345,7 @@ export default function PublicPage() {
                                 "rounded px-1 py-0.5 text-[10px] leading-tight truncate pointer-events-none",
                                 r.status === "pending"
                                   ? "bg-muted-foreground/25 text-foreground border border-dashed border-muted-foreground/50"
-                                  : cn("text-white", roomColorClass(r.room))
+                                  : cn("text-white", roomColorClass(r.room, false, allRooms))
                               )}
                             >
                               {r.status === "pending" && "⧖ "}{r.startTime} {resolveRoom(r.room)}
@@ -414,17 +424,22 @@ export default function PublicPage() {
                               isToday ? "text-primary" : isSun ? "text-red-500" : isSat ? "text-blue-500" : ""
                             )}>{format(day, "d")}</div>
                             <div className="text-[9px] text-muted-foreground">{format(day, "MMM", { locale: th })} {(day.getFullYear() + 543) % 100}</div>
-                            {isHoliday && (
-                              <div className="text-[8px] text-rose-700 dark:text-rose-300 leading-tight mt-0.5 truncate" title={dayHolidays[0].name_th}>
-                                {shortHolidayLabel(dayHolidays[0].name_th, 8)}
-                              </div>
-                            )}
                           </div>
-                          <div className="flex-1 min-w-0 overflow-hidden relative">
+                          <div className="flex-1 min-w-0 relative">
                             {isHoliday && dayHolidays.length > 0 && (
-                              <div className="mb-1 flex items-start gap-1 text-[10px] text-rose-800 dark:text-rose-200">
-                                <Flag className="h-3 w-3 shrink-0 mt-0.5" />
-                                <span className="leading-snug">{dayHolidays.map((h) => h.name_th).join(" · ")}</span>
+                              <div className="mb-2 rounded-md border border-rose-200/80 bg-rose-50/90 dark:border-rose-800 dark:bg-rose-950/40 px-2 py-1.5 space-y-1">
+                                <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-900 dark:text-rose-100">
+                                  <Flag className="h-3.5 w-3.5 shrink-0" />
+                                  วันหยุดราชการ
+                                </div>
+                                {dayHolidays.map((h) => (
+                                  <p
+                                    key={`${h.date}-${h.name_th}`}
+                                    className="text-xs sm:text-sm leading-snug text-rose-950 dark:text-rose-50 font-medium break-words whitespace-normal"
+                                  >
+                                    {h.name_th}
+                                  </p>
+                                ))}
                               </div>
                             )}
                             {bookings.length === 0 && !isHoliday ? (
@@ -453,7 +468,7 @@ export default function PublicPage() {
                                             "cursor-pointer group/bar relative",
                                             isPending
                                               ? "bg-muted-foreground/25 text-foreground border border-dashed border-muted-foreground/50"
-                                              : cn("text-white", roomColorClass(r.room))
+                                              : cn("text-white", roomColorClass(r.room, false, allRooms))
                                           )}
                                           style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                                         >
@@ -505,9 +520,9 @@ export default function PublicPage() {
                           วันหยุดราชการ
                         </div>
                         {selectedDayHolidays.map((h) => (
-                          <div key={`${h.date}-${h.name_th}`} className="text-xs">
-                            <p className="font-medium leading-snug">{h.name_th}</p>
-                            <p className="text-[10px] text-muted-foreground">{holidayTypeLabel(h.type)}</p>
+                          <div key={`${h.date}-${h.name_th}`} className="text-sm">
+                            <p className="font-semibold leading-snug">{h.name_th}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{holidayTypeLabel(h.type)}</p>
                           </div>
                         ))}
                       </div>
@@ -541,7 +556,7 @@ export default function PublicPage() {
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <MapPin className="h-3 w-3 flex-shrink-0" />
-                            <Badge variant="outline" className={cn("text-[10px] h-4 px-1.5", roomColorClass(r.room, true))}>
+                            <Badge variant="outline" className={cn("text-[10px] h-4 px-1.5", roomColorClass(r.room, true, allRooms))}>
                               {resolveRoom(r.room)}
                             </Badge>
                           </div>

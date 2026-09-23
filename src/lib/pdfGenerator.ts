@@ -1,4 +1,5 @@
-import { ROOMS, resolveRoom, resolveDepartmentForDisplay } from "@/lib/mockData";
+import { resolveDepartmentForDisplay } from "@/lib/mockData";
+import { DEFAULT_MEETING_ROOMS, resolveRoom, type MeetingRoom } from "@/lib/meetingRooms";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
@@ -127,7 +128,10 @@ async function enrichMultiDayData(
   }
 }
 
-function buildPrintHtml(data: Record<string, unknown>): string {
+function buildPrintHtml(
+  data: Record<string, unknown>,
+  rooms: MeetingRoom[] = DEFAULT_MEETING_ROOMS,
+): string {
   const assetBase = import.meta.env.BASE_URL;
   const now = new Date();
   const { day, month, yearBE } = formatThaiDateParts(now);
@@ -155,10 +159,13 @@ function buildPrintHtml(data: Record<string, unknown>): string {
   const tracking = esc(data.trackingNumber);
   const equipment: string[] = Array.isArray(data.equipment) ? data.equipment : [];
 
-  const roomRows = ROOMS.map(
-    (r) =>
-      `<div class="check-row"><span class="box">${r.value === room ? "X" : "&nbsp;"}</span>${esc(r.label)}</div>`,
-  ).join("");
+  const roomRows = rooms
+    .filter((r) => r.enabled)
+    .map(
+      (r) =>
+        `<div class="check-row"><span class="box">${r.value === room ? "X" : "&nbsp;"}</span>${esc(r.label)}</div>`,
+    )
+    .join("");
 
   const equipRows = EQUIPMENT_PDF_LABELS.map(
     (item) =>
@@ -449,10 +456,13 @@ function buildPrintHtml(data: Record<string, unknown>): string {
 }
 
 /** เปิดหน้าพิมพ์ HTML — เบราว์เซอร์จัดวางภาษาไทยถูกต้อง (ไม่ใช้ pdf-lib) */
-export const generateReservationPDF = async (formData: Record<string, unknown>) => {
+export const generateReservationPDF = async (
+  formData: Record<string, unknown>,
+  rooms: MeetingRoom[] = DEFAULT_MEETING_ROOMS,
+) => {
   try {
     const enriched = await enrichMultiDayData(formData);
-    const html = buildPrintHtml(enriched);
+    const html = buildPrintHtml(enriched, rooms);
     const win = window.open("", "_blank");
     if (!win) {
       alert("เบราว์เซอร์บล็อกหน้าต่างป๊อปอัป กรุณาอนุญาตแล้วลองใหม่");

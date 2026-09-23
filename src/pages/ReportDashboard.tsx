@@ -3,7 +3,9 @@ import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, DoorOpen, CalendarCheck, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROOMS, ROOM_COLORS, resolveRoom } from "@/lib/mockData";
+import { resolveRoom } from "@/lib/mockData";
+import { findMeetingRoom, roomSolidColorClass } from "@/lib/meetingRooms";
+import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
 
@@ -17,6 +19,7 @@ const THAI_MONTHS = [
 ];
 
 export default function ReportDashboard() {
+  const { activeRooms, allRooms } = useMeetingRooms();
   const [reservations, setReservations] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<"month" | "year">("month");
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
@@ -41,7 +44,7 @@ export default function ReportDashboard() {
 
   // Stats per room
   const roomStats = useMemo(() => {
-    return ROOMS.map((room) => {
+    return activeRooms.map((room) => {
       const filtered = approvedReservations.filter((r) => {
         if (!r.date || resolveRoom(r.room) !== room.value) return false;
         const d = new Date(r.date);
@@ -56,7 +59,7 @@ export default function ReportDashboard() {
         count: filtered.length,
       };
     });
-  }, [approvedReservations, viewMode, selectedYear, selectedMonth]);
+  }, [approvedReservations, viewMode, selectedYear, selectedMonth, activeRooms]);
 
   const totalBookings = roomStats.reduce((sum, r) => sum + r.count, 0);
   const maxCount = Math.max(1, ...roomStats.map((r) => r.count));
@@ -208,7 +211,12 @@ export default function ReportDashboard() {
                 className="rounded-lg border p-4 space-y-3 hover:shadow-md transition-shadow"
               >
                 <div className="flex items-center gap-3">
-                  <div className={cn("h-4 w-4 rounded-sm", ROOM_COLORS[stat.room])} />
+                  <div
+                    className={cn(
+                      "h-4 w-4 rounded-sm",
+                      roomSolidColorClass(findMeetingRoom(stat.room, allRooms)?.colorKey ?? "slate"),
+                    )}
+                  />
                   <span className="text-sm font-semibold">{stat.room}</span>
                 </div>
                 <div className="flex items-end gap-2">
@@ -218,7 +226,10 @@ export default function ReportDashboard() {
                 {/* Progress bar */}
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                   <div
-                    className={cn("h-full rounded-full transition-all duration-500", ROOM_COLORS[stat.room])}
+                    className={cn(
+                      "h-full rounded-full transition-all duration-500",
+                      roomSolidColorClass(findMeetingRoom(stat.room, allRooms)?.colorKey ?? "slate"),
+                    )}
                     style={{ width: `${(stat.count / maxCount) * 100}%` }}
                   />
                 </div>

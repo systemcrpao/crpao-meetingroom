@@ -1,4 +1,4 @@
-import { ROOMS, resolveRoom } from "@/lib/mockData";
+import { DEFAULT_MEETING_ROOMS, resolveRoom } from "@/lib/meetingRooms";
 
 export type AdminRole = "super_admin" | "admin";
 
@@ -65,8 +65,8 @@ export function isBootstrapSuperAdmin(
   return isSuperAdminEmail(email, remoteSuperAdminEmails);
 }
 
-export function allRoomValues(): string[] {
-  return ROOMS.map((r) => r.value);
+export function allRoomValues(rooms = DEFAULT_MEETING_ROOMS): string[] {
+  return rooms.filter((r) => r.enabled).map((r) => r.value);
 }
 
 export function canApproveRoom(profile: AdminProfile | null, storedRoom: string): boolean {
@@ -81,7 +81,7 @@ export function adminProfileFromDoc(email: string, data: AdminUserDoc): AdminPro
     return {
       email: data.email || email,
       role: "super_admin",
-      allowedRooms: allRoomValues(),
+      allowedRooms: allRoomValues(DEFAULT_MEETING_ROOMS),
       isAdmin: true,
       isSuperAdmin: true,
       source: "firestore",

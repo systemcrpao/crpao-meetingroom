@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { format, startOfDay, eachDayOfInterval } from "date-fns";
 import { th } from "date-fns/locale";
 import { CalendarIcon, Printer, Building2, BookOpen, Clock3, DoorOpen, MonitorSpeaker, UserCircle2, Users, CheckCircle2, Copy, FileSearch, ImageDown } from "lucide-react";
 import { downloadBookingCardPng } from "@/lib/bookingCardImage";
 import { cn } from "@/lib/utils";
-import { DEPARTMENTS, DEPARTMENT_OTHER, ROOMS, EQUIPMENT_OPTIONS, TIME_SLOTS } from "@/lib/mockData";
+import { DEPARTMENTS, DEPARTMENT_OTHER, EQUIPMENT_OPTIONS, TIME_SLOTS } from "@/lib/mockData";
+import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, getDocs, query, where } from "firebase/firestore";
@@ -62,6 +63,7 @@ async function getUniqueTrackingNumber(): Promise<string> {
 export default function ReservationForm() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { activeRooms } = useMeetingRooms();
   const [department, setDepartment] = useState("");
   const [departmentOther, setDepartmentOther] = useState("");
   const [topic, setTopic] = useState("");
@@ -86,6 +88,12 @@ export default function ReservationForm() {
   const [savedTrackingNumber, setSavedTrackingNumber] = useState("");
   const [savedFormData, setSavedFormData] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (room && !activeRooms.some((r) => r.value === room)) {
+      setRoom("");
+    }
+  }, [activeRooms, room]);
 
   // Compute filtered end time slots based on selected start time
   const filteredEndTimeSlots = useMemo(() => {
@@ -394,7 +402,7 @@ export default function ReservationForm() {
             <div className="space-y-2">
               <Button
                 className="w-full gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-                onClick={() => generateReservationPDF(savedFormData)}
+                onClick={() => generateReservationPDF(savedFormData, activeRooms)}
               >
                 <Printer className="h-4 w-4" />
                 พิมพ์แบบฟอร์มจองห้องประชุม
@@ -651,7 +659,7 @@ export default function ReservationForm() {
               <Select value={room} onValueChange={handleRoomChange}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="เลือกห้องประชุม" /></SelectTrigger>
                 <SelectContent>
-                  {ROOMS.map((r) => (
+                  {activeRooms.map((r) => (
                     <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                   ))}
                 </SelectContent>

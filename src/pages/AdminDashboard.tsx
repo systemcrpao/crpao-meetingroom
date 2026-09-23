@@ -7,9 +7,11 @@ import {
 import { th } from "date-fns/locale";
 import { Check, X, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Clock, MapPin, User, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROOMS, ROOM_COLORS, resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
+import { resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
+import { roomSolidColorClass } from "@/lib/meetingRooms";
 import { canApproveRoom } from "@/lib/adminAccess";
 import { useAdminProfile } from "@/contexts/AdminProfileContext";
+import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, getDocs } from "firebase/firestore";
@@ -28,6 +30,7 @@ const WEEK_LABELS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 export default function AdminDashboard() {
   const { toast } = useToast();
   const { profile } = useAdminProfile();
+  const { activeRooms, allRooms } = useMeetingRooms();
   const [reservations, setReservations] = useState<any[]>([]);
   const [roomFilter, setRoomFilter] = useState("all");
   const [calendarView, setCalendarView] = useState<"week" | "month">("month");
@@ -121,8 +124,8 @@ export default function AdminDashboard() {
   const calendarReservations = useMemo(() => {
     const base = reservations.filter((r) => r.status === "approved" || r.status === "pending");
     if (roomFilter === "all") return base;
-    return base.filter((r) => roomMatchesFilter(r.room, roomFilter));
-  }, [reservations, roomFilter]);
+    return base.filter((r) => roomMatchesFilter(r.room, roomFilter, allRooms));
+  }, [reservations, roomFilter, allRooms]);
 
   const getBookingsForDay = (day: Date) =>
     calendarReservations.filter((r) => {
@@ -136,11 +139,11 @@ export default function AdminDashboard() {
       .filter((r) => {
         if (!r.date) return false;
         if (r.status !== "approved" && r.status !== "pending") return false;
-        if (roomFilter !== "all" && !roomMatchesFilter(r.room, roomFilter)) return false;
+        if (roomFilter !== "all" && !roomMatchesFilter(r.room, roomFilter, allRooms)) return false;
         return isSameDay(new Date(r.date), selectedDay);
       })
       .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));
-  }, [reservations, selectedDay, roomFilter]);
+  }, [reservations, selectedDay, roomFilter, allRooms]);
 
   const getBlockStyle = (r: any) => {
     const startH = parseInt(r.startTime?.split(":")[0] ?? "8");
@@ -208,7 +211,7 @@ export default function AdminDashboard() {
                       <TableCell className="font-medium text-xs">{r.department}</TableCell>
                       <TableCell className="text-xs max-w-[180px] truncate">{r.topic}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={cn("text-xs", roomColorClass(r.room, true))}>
+                        <Badge variant="outline" className={cn("text-xs", roomColorClass(r.room, true, allRooms))}>
                           {resolveRoom(r.room)}
                         </Badge>
                       </TableCell>
@@ -300,7 +303,7 @@ export default function AdminDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">ทุกห้องประชุม</SelectItem>
-                  {ROOMS.map((r) => (
+                  {activeRooms.map((r) => (
                     <SelectItem key={r.value} value={r.value}>{r.value}</SelectItem>
                   ))}
                 </SelectContent>
@@ -310,9 +313,9 @@ export default function AdminDashboard() {
 
           {/* Room legend */}
           <div className="flex flex-wrap gap-2 pt-2">
-            {ROOMS.map((r) => (
+            {activeRooms.map((r) => (
               <div key={r.value} className="flex items-center gap-1.5">
-                <div className={cn("h-3 w-3 rounded-sm", ROOM_COLORS[r.value])} />
+                <div className={cn("h-3 w-3 rounded-sm", roomSolidColorClass(r.colorKey))} />
                 <span className="text-xs text-muted-foreground">{r.value}</span>
               </div>
             ))}
@@ -405,7 +408,7 @@ export default function AdminDashboard() {
                             "rounded px-1 py-0.5 text-[10px] leading-tight truncate cursor-default",
                             r.status === "pending"
                               ? "bg-muted-foreground/30 text-foreground border border-dashed border-muted-foreground/50"
-                              : cn("text-white", roomColorClass(r.room))
+                              : cn("text-white", roomColorClass(r.room, false, allRooms))
                           )}
                         >
                           {r.status === "pending" && "⧖ "}{r.startTime} {resolveRoom(r.room)}
@@ -522,7 +525,7 @@ export default function AdminDashboard() {
                                       "text-[10px] font-medium overflow-hidden shadow-sm cursor-default",
                                       isPending
                                         ? "bg-muted-foreground/30 text-foreground border border-dashed border-muted-foreground/60"
-                                        : cn("text-white", roomColorClass(r.room))
+                                        : cn("text-white", roomColorClass(r.room, false, allRooms))
                                     )}
                                     style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                                     title={`${r.topic}\n${resolveRoom(r.room)} | ${r.startTime}–${r.endTime}\n${r.bookerName}${
@@ -583,7 +586,7 @@ export default function AdminDashboard() {
                           "text-xs",
                           r.status === "pending"
                             ? ""
-                            : roomColorClass(r.room, true)
+                            : roomColorClass(r.room, true, allRooms)
                         )}
                       >
                         {resolveRoom(r.room)}

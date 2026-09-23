@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { collection, doc, onSnapshot, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { Shield, Save, Trash2, UserPlus } from "lucide-react";
 import { db } from "@/lib/firebase";
-import { ROOMS } from "@/lib/mockData";
+import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import {
   adminDocId,
   allRoomValues,
@@ -28,6 +28,7 @@ type AdminRow = AdminUserDoc & { id: string };
 export default function AdminPermissions() {
   const { toast } = useToast();
   const { remoteSuperAdminEmails } = useAdminProfile();
+  const { activeRooms } = useMeetingRooms();
   const [admins, setAdmins] = useState<AdminRow[]>([]);
   const [newEmail, setNewEmail] = useState("");
   const [newSuperEmail, setNewSuperEmail] = useState("");
@@ -101,7 +102,7 @@ export default function AdminPermissions() {
         {
           email,
           role: "super_admin" as AdminRole,
-          allowedRooms: allRoomValues(),
+          allowedRooms: allRoomValues(activeRooms),
           updatedAt: serverTimestamp(),
         },
         { merge: true },
@@ -224,7 +225,7 @@ export default function AdminPermissions() {
     idPrefix: string;
   }) => (
     <div className="grid sm:grid-cols-2 gap-2">
-      {ROOMS.map((room) => (
+      {activeRooms.map((room) => (
         <label
           key={room.value}
           htmlFor={`${idPrefix}-${room.value}`}

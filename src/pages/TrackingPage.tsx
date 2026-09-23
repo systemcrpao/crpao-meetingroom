@@ -4,6 +4,7 @@ import { th } from "date-fns/locale";
 import { Search, FileText, Clock, CheckCircle2, CircleDot, Circle, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveRoom, roomColorClass, getRoomLabel } from "@/lib/mockData";
+import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { generateReservationPDF } from "@/lib/pdfGenerator";
@@ -21,6 +22,7 @@ const STEPS = [
 ];
 
 export default function TrackingPage() {
+  const { activeRooms, allRooms } = useMeetingRooms();
   const [trackingCode, setTrackingCode] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -219,8 +221,8 @@ export default function TrackingPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">ห้องประชุม</p>
-                    <Badge variant="outline" className={cn("text-xs mt-0.5", roomColorClass(reservation.room, true))}>
-                      {getRoomLabel(reservation.room)}
+                    <Badge variant="outline" className={cn("text-xs mt-0.5", roomColorClass(reservation.room, true, allRooms))}>
+                      {getRoomLabel(reservation.room, allRooms)}
                     </Badge>
                   </div>
                   <div>
@@ -252,7 +254,7 @@ export default function TrackingPage() {
               <Button
                 variant="outline"
                 className="w-full gap-2"
-                onClick={() => generateReservationPDF(reservation)}
+                onClick={() => generateReservationPDF(reservation, activeRooms)}
               >
                 <Printer className="h-4 w-4" />
                 พิมพ์แบบฟอร์มจองห้องประชุม

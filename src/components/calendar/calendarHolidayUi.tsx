@@ -10,11 +10,15 @@ export function holidaysTitle(holidays: ThaiPublicHoliday[]): string {
   return holidays.map((h) => h.name_th).join("\n");
 }
 
+const MONTH_CELL_HOLIDAY_NAME_MAX = 100;
+
 /** ข้อความบรรทัดเดียวในช่องปฏิทินรายเดือน — ไม่ขยายความสูงช่อง */
 export function holidaysCompactLabel(holidays: ThaiPublicHoliday[]): string {
   if (holidays.length === 0) return "";
-  if (holidays.length === 1) return shortHolidayLabel(holidays[0].name_th, 9);
-  return `${shortHolidayLabel(holidays[0].name_th, 7)} +${holidays.length - 1}`;
+  if (holidays.length === 1) return shortHolidayLabel(holidays[0].name_th, MONTH_CELL_HOLIDAY_NAME_MAX);
+  const suffix = ` +${holidays.length - 1}`;
+  const firstMax = Math.max(0, MONTH_CELL_HOLIDAY_NAME_MAX - suffix.length);
+  return `${shortHolidayLabel(holidays[0].name_th, firstMax)}${suffix}`;
 }
 
 export function monthBookingCap(holidays: ThaiPublicHoliday[]): number {
@@ -31,7 +35,7 @@ export function CalendarHolidayMarker({ holidays }: { holidays: ThaiPublicHolida
   if (!holidays.length) return null;
   return (
     <div
-      className="w-full shrink-0 text-[8px] leading-[9px] h-[9px] text-rose-800 dark:text-rose-200 font-semibold truncate pointer-events-none"
+      className="w-full shrink-0 text-[10px] leading-[11px] h-[11px] text-rose-800 dark:text-rose-200 font-semibold truncate pointer-events-none"
       title={holidaysTitle(holidays)}
     >
       {holidaysCompactLabel(holidays)}
@@ -43,11 +47,11 @@ export function CalendarHolidayWeekLine({ holidays }: { holidays: ThaiPublicHoli
   if (!holidays.length) return null;
   return (
     <div
-      className="mb-0.5 px-0.5 text-[9px] leading-tight text-rose-800 dark:text-rose-200 truncate"
+      className="mb-0.5 px-0.5 text-[10px] leading-[11px] h-[11px] text-rose-800 dark:text-rose-200 font-semibold truncate"
       title={holidaysTitle(holidays)}
     >
       <span className="font-semibold">หยุด</span>{" "}
-      {holidays.map((h) => h.name_th).join(" · ")}
+      {holidays.map((h) => shortHolidayLabel(h.name_th, MONTH_CELL_HOLIDAY_NAME_MAX)).join(" · ")}
     </div>
   );
 }

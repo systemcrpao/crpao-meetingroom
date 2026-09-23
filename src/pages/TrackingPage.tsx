@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { format } from "date-fns";
-import { th } from "date-fns/locale";
+import { formatDateThaiLongBE } from "@/lib/thaiDate";
 import { Search, FileText, Clock, CheckCircle2, CircleDot, Circle, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveRoom, roomColorClass, getRoomLabel } from "@/lib/mockData";
@@ -229,7 +228,7 @@ export default function TrackingPage() {
                     <p className="text-xs text-muted-foreground">วันที่</p>
                     <p className="font-medium">
                       {reservation.date
-                        ? `${format(new Date(reservation.date), "d MMMM", { locale: th })} ${new Date(reservation.date).getFullYear() + 543}`
+                        ? formatDateThaiLongBE(reservation.date)
                         : "-"}
                     </p>
                   </div>

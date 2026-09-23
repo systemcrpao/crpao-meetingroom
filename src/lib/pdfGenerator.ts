@@ -351,7 +351,7 @@ function buildPrintHtml(
         <p class="subtitle">สำนักปลัดองค์การบริหารส่วนจังหวัด</p>
         <p class="phone">เบอร์โทรศัพท์ภายใน 3503</p>
       </div><br />
-      <p class="date-line">วันที่ ${day} เดือน ${month} พ.ศ. ${yearBE}</p>
+      <p class="date-line">วันที่ ${day} เดือน ${month} ${yearBE}</p>
 
       <p><span class="th-word">เรื่อง</span>&nbsp;&nbsp;&nbsp;ขอใช้ห้องประชุม</p>
       <p><span class="th-word">เรียน</span>&nbsp;&nbsp;&nbsp;หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด</p>

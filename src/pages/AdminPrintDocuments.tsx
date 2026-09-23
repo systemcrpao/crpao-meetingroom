@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { format } from "date-fns";
-import { th } from "date-fns/locale";
 import { Printer, FileSpreadsheet } from "lucide-react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
 import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { openReservationTablePrint } from "@/lib/reservationPrintTable";
+import { generateReservationPDF } from "@/lib/pdfGenerator";
 import { cn } from "@/lib/utils";
+import { buddhistYearSelectLabel, formatDateThaiBE } from "@/lib/thaiDate";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,7 +74,7 @@ export default function AdminPrintDocuments() {
       });
   }, [reservations, selectedYear, selectedMonth, filterRoom, filterStatus, allRooms]);
 
-  const subtitle = `เดือน${THAI_MONTHS[selectedMonth]} พ.ศ. ${selectedYear + 543}${
+  const subtitle = `เดือน${THAI_MONTHS[selectedMonth]} ${selectedYear + 543}${
     filterRoom !== "all" ? ` · ห้อง ${filterRoom}` : ""
   }${filterStatus !== "all" ? ` · ${STATUS_MAP[filterStatus]?.label ?? filterStatus}` : ""}`;
 
@@ -84,6 +84,10 @@ export default function AdminPrintDocuments() {
       subtitle,
       rooms: allRooms,
     });
+  };
+
+  const handlePrintForm = (row: Record<string, unknown>) => {
+    void generateReservationPDF(row, allRooms);
   };
 
   return (
@@ -107,7 +111,7 @@ export default function AdminPrintDocuments() {
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3 items-end">
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">ปี (ค.ศ.)</p>
+              <p className="text-xs text-muted-foreground">ปี</p>
               <Select
                 value={String(selectedYear)}
                 onValueChange={(v) => setSelectedYear(parseInt(v, 10))}
@@ -118,7 +122,7 @@ export default function AdminPrintDocuments() {
                 <SelectContent>
                   {yearOptions.map((y) => (
                     <SelectItem key={y} value={String(y)}>
-                      {y} ({y + 543})
+                      {buddhistYearSelectLabel(y)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -189,12 +193,13 @@ export default function AdminPrintDocuments() {
                   <TableHead>หน่วยงาน</TableHead>
                   <TableHead>ผู้จอง</TableHead>
                   <TableHead className="text-center">สถานะ</TableHead>
+                  <TableHead className="w-14 text-center">พิมพ์แบบฟอร์ม</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
+                    <TableCell colSpan={10} className="text-center text-muted-foreground py-10">
                       ไม่มีรายการตามเงื่อนไขที่เลือก
                     </TableCell>
                   </TableRow>
@@ -204,9 +209,7 @@ export default function AdminPrintDocuments() {
                       <TableCell className="text-center text-muted-foreground">{i + 1}</TableCell>
                       <TableCell className="font-mono text-xs">{r.trackingNumber ?? "-"}</TableCell>
                       <TableCell className="whitespace-nowrap text-sm">
-                        {r.date
-                          ? format(new Date(r.date), "d MMM yy", { locale: th })
-                          : "-"}
+                        {r.date ? formatDateThaiBE(r.date) : "-"}
                       </TableCell>
                       <TableCell className="text-sm whitespace-nowrap">
                         {r.startTime}–{r.endTime}
@@ -227,6 +230,19 @@ export default function AdminPrintDocuments() {
                           {STATUS_MAP[r.status]?.label ?? r.status}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-primary"
+                          title="พิมพ์แบบฟอร์มจองห้องประชุม (A4)"
+                          aria-label="พิมพ์แบบฟอร์มจองห้องประชุม"
+                          onClick={() => handlePrintForm(r)}
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -234,7 +250,7 @@ export default function AdminPrintDocuments() {
             </Table>
           </div>
           <p className="text-xs text-muted-foreground">
-            แสดง {filteredRows.length} รายการ · หัวข้อตารางและข้อมูลจะถูกส่งไปยังหน้าต่างพิมพ์เมื่อกดปุ่มพิมพ์
+            แสดง {filteredRows.length} รายการ · ปุ่มพิมพ์ด้านบนส่งออกตาราง (A4 แนวนอน) · ไอคอนเครื่องพิมพ์ในแต่ละแถวเปิดแบบฟอร์มจอง (A4 แนวตั้ง) เหมือนหน้าจอง
           </p>
         </CardContent>
       </Card>

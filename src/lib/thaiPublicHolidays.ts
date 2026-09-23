@@ -65,10 +65,10 @@ export function buildHolidayDateMap(
   return map;
 }
 
-/** ชื่อสั้นสำหรับช่องปฏิทิน */
+/** ชื่อสั้นสำหรับช่องปฏิทิน (เกิน max ตัวอักษร → ต่อท้าย ..) */
 export function shortHolidayLabel(name: string, max = 14): string {
   if (name.length <= max) return name;
-  return `${name.slice(0, max)}…`;
+  return `${name.slice(0, max)}..`;
 }
 
 export function holidayTypeLabel(type: string): string {

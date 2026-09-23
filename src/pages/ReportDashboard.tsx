@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, DoorOpen, CalendarCheck, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { buddhistYearSelectLabel } from "@/lib/thaiDate";
 import { resolveRoom } from "@/lib/mockData";
 import { findMeetingRoom, roomSolidColorClass } from "@/lib/meetingRooms";
 import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
@@ -117,7 +118,7 @@ export default function ReportDashboard() {
             </SelectTrigger>
             <SelectContent>
               {yearOptions.map((y) => (
-                <SelectItem key={y} value={y.toString()}>พ.ศ. {y + 543}</SelectItem>
+                <SelectItem key={y} value={y.toString()}>{buddhistYearSelectLabel(y)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -244,7 +245,7 @@ export default function ReportDashboard() {
       {viewMode === "year" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">สถิติรายเดือน ปี พ.ศ. {beYear}</CardTitle>
+            <CardTitle className="text-lg">สถิติรายเดือน ปี {beYear}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">

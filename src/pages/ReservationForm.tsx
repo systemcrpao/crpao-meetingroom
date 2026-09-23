@@ -10,6 +10,11 @@ import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, getDocs, query, where } from "firebase/firestore";
 import { generateReservationPDF, formatBookingPeriod } from "@/lib/pdfGenerator";
+import {
+  formatDateRangeShortBE,
+  formatDateThaiBE,
+  formatDateThaiLongBE,
+} from "@/lib/thaiDate";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -216,7 +221,7 @@ export default function ReservationForm() {
           return newStart < re && newEnd > rs;
         });
         if (hasOverlap) {
-          const thaiDate = `${format(bookDate, "d MMMM", { locale: th })} ${bookDate.getFullYear() + 543}`;
+          const thaiDate = formatDateThaiLongBE(bookDate);
           toast({
             title: "ห้องประชุมถูกจองแล้วในช่วงเวลานี้",
             description: `ห้อง ${room} มีการจองที่คาบเกี่ยวกันในวันที่ ${thaiDate} กรุณาเลือกเวลาอื่นหรือห้องอื่น`,
@@ -250,7 +255,7 @@ export default function ReservationForm() {
       const telegramData = {
         ...baseFormData,
         date: datesToBook.length > 1
-          ? `${format(datesToBook[0], "d MMM", { locale: th })} - ${format(datesToBook[datesToBook.length - 1], "d MMM", { locale: th })} ${datesToBook[datesToBook.length - 1].getFullYear() + 543} (${datesToBook.length} วัน)`
+          ? `${formatDateRangeShortBE(datesToBook[0], datesToBook[datesToBook.length - 1])} (${datesToBook.length} วัน)`
           : firstDateStr,
         trackingNumber,
       };
@@ -386,7 +391,7 @@ export default function ReservationForm() {
                   {savedFormData?.totalDays > 1
                     ? formatBookingPeriod(savedFormData)
                     : savedFormData?.date && date
-                      ? `${format(date, "d MMMM", { locale: th })} ${date.getFullYear() + 543}`
+                      ? formatDateThaiLongBE(date)
                       : savedFormData?.date}
                 </p>
               </div>
@@ -534,7 +539,7 @@ export default function ReservationForm() {
                       className={cn("w-full h-9 justify-start text-left text-sm font-normal", !date && "text-muted-foreground")}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4 text-emerald-500" />
-                      {date ? `${format(date, "d MMMM", { locale: th })} ${date.getFullYear() + 543}` : "เลือกวันที่"}
+                      {date ? formatDateThaiLongBE(date) : "เลือกวันที่"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -563,7 +568,7 @@ export default function ReservationForm() {
                         className={cn("w-full h-9 justify-start text-left text-sm font-normal", !date && "text-muted-foreground")}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4 text-emerald-500" />
-                        {date ? `${format(date, "d MMM", { locale: th })} ${date.getFullYear() + 543}` : "เลือกวันที่"}
+                        {date ? formatDateThaiBE(date) : "เลือกวันที่"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -594,7 +599,7 @@ export default function ReservationForm() {
                         className={cn("w-full h-9 justify-start text-left text-sm font-normal", !endDate && "text-muted-foreground")}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4 text-emerald-500" />
-                        {endDate ? `${format(endDate, "d MMM", { locale: th })} ${endDate.getFullYear() + 543}` : "เลือกวันที่"}
+                        {endDate ? formatDateThaiBE(endDate) : "เลือกวันที่"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">

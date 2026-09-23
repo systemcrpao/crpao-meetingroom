@@ -1,5 +1,4 @@
-import { format } from "date-fns";
-import { th } from "date-fns/locale";
+import { formatDateThaiBE, formatDateTimeThaiBE, toBuddhistYear } from "@/lib/thaiDate";
 import { getRoomLabel, resolveDepartmentForDisplay } from "@/lib/mockData";
 import { resolveRoom, type MeetingRoom } from "@/lib/meetingRooms";
 
@@ -26,13 +25,7 @@ function esc(s: unknown): string {
 
 function formatDateCell(dateStr: string | undefined): string {
   if (!dateStr) return "-";
-  try {
-    const d = new Date(dateStr);
-    if (Number.isNaN(d.getTime())) return dateStr;
-    return `${format(d, "d MMM yyyy", { locale: th })} (${d.getFullYear() + 543})`;
-  } catch {
-    return dateStr;
-  }
+  return formatDateThaiBE(dateStr);
 }
 
 function statusText(status: string | undefined): string {
@@ -50,8 +43,8 @@ export function openReservationTablePrint(
   },
 ): void {
   const assetBase = import.meta.env.BASE_URL;
-  const printedAt = format(new Date(), "d MMMM yyyy HH:mm", { locale: th });
-  const beYear = new Date().getFullYear() + 543;
+  const printedAt = formatDateTimeThaiBE(new Date());
+  const beYear = toBuddhistYear(new Date());
   const roomList = options.rooms ?? [];
 
   const bodyRows = rows
@@ -135,7 +128,7 @@ export function openReservationTablePrint(
 <body>
   <h1>${esc(options.title)}</h1>
   <div class="meta">
-    องค์การบริหารส่วนจังหวัดเชียงราย · พ.ศ. ${beYear}<br />
+    องค์การบริหารส่วนจังหวัดเชียงราย · ${beYear}<br />
     ${options.subtitle ? esc(options.subtitle) + "<br />" : ""}
     จำนวน ${rows.length} รายการ · พิมพ์เมื่อ ${esc(printedAt)} น.
   </div>

@@ -7,6 +7,13 @@ import {
 import { th } from "date-fns/locale";
 import { Check, X, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Clock, MapPin, User, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  formatDateRangeShortBE,
+  formatDateThaiBE,
+  formatDateThaiFullBE,
+  formatMonthYearCompactBE,
+  formatMonthYearThaiBE,
+} from "@/lib/thaiDate";
 import { useThaiPublicHolidays } from "@/hooks/useThaiPublicHolidays";
 import {
   CalendarHolidayMarker,
@@ -235,7 +242,7 @@ export default function AdminDashboard() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs whitespace-nowrap">
-                        {r.date ? format(new Date(r.date), "d MMM yy", { locale: th }) : "-"}
+                        {r.date ? formatDateThaiBE(r.date) : "-"}
                         <br />
                         {r.startTime}-{r.endTime}
                       </TableCell>
@@ -356,7 +363,7 @@ export default function AdminDashboard() {
                   <ChevronLeft className="h-4 w-4 mr-1" /> เดือนก่อน
                 </Button>
                 <span className="text-sm font-semibold">
-                  {format(monthDate, "MMMM", { locale: th })} {monthDate.getFullYear() + 543}
+                  {formatMonthYearThaiBE(monthDate)}
                 </span>
                 <Button variant="outline" size="sm" onClick={() => setMonthDate(addMonths(monthDate, 1))}>
                   เดือนถัดไป <ChevronRight className="h-4 w-4 ml-1" />
@@ -460,7 +467,7 @@ export default function AdminDashboard() {
                   <ChevronLeft className="h-4 w-4 mr-1" /> สัปดาห์ก่อน
                 </Button>
                 <span className="text-sm font-medium">
-                  {format(weekDays[0], "d MMM", { locale: th })} — {format(weekDays[6], "d MMM", { locale: th })} {weekDays[6].getFullYear() + 543}
+                  {formatDateRangeShortBE(weekDays[0], weekDays[6])}
                 </span>
                 <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, 7))}>
                   สัปดาห์ถัดไป <ChevronRight className="h-4 w-4 ml-1" />
@@ -523,7 +530,7 @@ export default function AdminDashboard() {
                           {format(day, "d")}
                         </div>
                         <div className="text-[9px] text-muted-foreground">
-                          {format(day, "MMM", { locale: th })} {(day.getFullYear() + 543).toString().slice(-2)}
+                          {formatMonthYearCompactBE(day)}
                         </div>
                       </div>
 
@@ -590,7 +597,7 @@ export default function AdminDashboard() {
             รายการจองประจำวัน
           </CardTitle>
           <CardDescription>
-            {format(selectedDay, "EEEE d MMMM", { locale: th })} {selectedDay.getFullYear() + 543}
+            {formatDateThaiFullBE(selectedDay)}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

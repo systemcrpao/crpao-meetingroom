@@ -19,6 +19,12 @@ import {
   monthBookingCap,
 } from "@/components/calendar/calendarHolidayUi";
 import { cn } from "@/lib/utils";
+import {
+  formatDateRangeShortBE,
+  formatDateThaiFullBE,
+  formatMonthYearCompactBE,
+  formatMonthYearThaiBE,
+} from "@/lib/thaiDate";
 import { resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
 import { roomSolidColorClass } from "@/lib/meetingRooms";
 import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
@@ -111,8 +117,6 @@ export default function PublicPage() {
   }, [monthDate]);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const beYear = (d: Date) => d.getFullYear() + 543;
-
   const holidayYears = useMemo(() => {
     const years = new Set<number>();
     years.add(monthDate.getFullYear());
@@ -263,7 +267,7 @@ export default function PublicPage() {
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <span className="text-sm font-semibold">
-                      {format(monthDate, "MMMM", { locale: th })} {beYear(monthDate)}
+                      {formatMonthYearThaiBE(monthDate)}
                     </span>
                     <Button variant="outline" size="sm" onClick={() => setMonthDate(addMonths(monthDate, 1))}>
                       <ChevronRight className="h-4 w-4" />
@@ -347,7 +351,7 @@ export default function PublicPage() {
                       <ChevronLeft className="h-4 w-4 mr-1" /> ก่อน
                     </Button>
                     <span className="text-sm font-semibold">
-                      {format(weekDays[0], "d MMM", { locale: th })} — {format(weekDays[6], "d MMM", { locale: th })} {beYear(weekDays[6])}
+                      {formatDateRangeShortBE(weekDays[0], weekDays[6])}
                     </span>
                     <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, 7))}>
                       ถัดไป <ChevronRight className="h-4 w-4 ml-1" />
@@ -401,7 +405,7 @@ export default function PublicPage() {
                               "text-lg font-bold leading-none",
                               isToday ? "text-primary" : isSun ? "text-red-500" : isSat ? "text-blue-500" : ""
                             )}>{format(day, "d")}</div>
-                            <div className="text-[9px] text-muted-foreground">{format(day, "MMM", { locale: th })} {(day.getFullYear() + 543) % 100}</div>
+                            <div className="text-[9px] text-muted-foreground">{formatMonthYearCompactBE(day)}</div>
                           </div>
                           <div className="flex-1 min-w-0 overflow-hidden relative">
                             <CalendarHolidayWeekLine holidays={dayHolidays} />
@@ -463,7 +467,7 @@ export default function PublicPage() {
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="text-xs font-semibold text-muted-foreground">
                     {selectedDay
-                      ? `${format(selectedDay, "EEEE d MMMM", { locale: th })} ${beYear(selectedDay)}`
+                      ? formatDateThaiFullBE(selectedDay)
                       : "คลิกวันที่เพื่อดูรายละเอียด"}
                   </h3>
                   {selectedDay && (

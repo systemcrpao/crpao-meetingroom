@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
-import { th } from "date-fns/locale";
+import { formatDateThaiBE, formatDateThaiLongBE } from "@/lib/thaiDate";
 import { Pencil, Trash2, CalendarIcon, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TIME_SLOTS, resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
@@ -264,7 +264,7 @@ export default function ManageReservations() {
                       <TableCell className="text-xs whitespace-nowrap">
                         <div className={cn("font-medium", r.date && r.date < format(new Date(), "yyyy-MM-dd") && "text-muted-foreground")}>
                           {r.date
-                            ? `${format(new Date(r.date), "d MMM", { locale: th })} ${new Date(r.date).getFullYear() + 543}`
+                            ? formatDateThaiBE(r.date)
                             : "-"}
                           {r.date && r.date < format(new Date(), "yyyy-MM-dd") && (
                             <span className="ml-1 text-[10px] text-muted-foreground">(ผ่านแล้ว)</span>
@@ -355,7 +355,7 @@ export default function ManageReservations() {
               วันที่{" "}
               <span className="font-semibold text-foreground">
                 {deleteTarget?.date
-                  ? `${format(new Date(deleteTarget.date), "d MMMM", { locale: th })} ${new Date(deleteTarget.date).getFullYear() + 543}`
+                  ? formatDateThaiLongBE(deleteTarget.date)
                   : ""}
               </span>{" "}
               ใช่หรือไม่? <br />
@@ -418,7 +418,7 @@ export default function ManageReservations() {
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {editDate
-                      ? `${format(editDate, "d MMMM", { locale: th })} ${editDate.getFullYear() + 543}`
+                      ? formatDateThaiLongBE(editDate)
                       : "เลือกวันที่"}
                   </Button>
                 </PopoverTrigger>

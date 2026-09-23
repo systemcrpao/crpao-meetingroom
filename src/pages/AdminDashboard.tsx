@@ -29,6 +29,7 @@ import { canApproveRoom } from "@/lib/adminAccess";
 import { useAdminProfile } from "@/contexts/AdminProfileContext";
 import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { useToast } from "@/hooks/use-toast";
+import { sendTelegramApprovalNotification } from "@/lib/telegram";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, getDocs } from "firebase/firestore";
 
@@ -84,10 +85,10 @@ export default function AdminDashboard() {
   const paginatedPending = pendingReservations.slice((pendingPage - 1) * ITEMS_PER_PAGE, pendingPage * ITEMS_PER_PAGE);
 
   const handleUpdateStatus = async (
-    id: string,
+    reservation: { id: string; room: string; date?: string; trackingNumber?: string },
     newStatus: "approved" | "rejected",
-    room: string,
   ) => {
+    const { id, room } = reservation;
     if (!canApproveRoom(profile, room)) {
       toast({
         title: "ไม่มีสิทธิ์",
@@ -100,6 +101,18 @@ export default function AdminDashboard() {
       if (newStatus === "approved") {
         await updateDoc(doc(db, "reservations", id), { status: "approved" });
         toast({ title: "อนุมัติแล้ว", description: "รายการจองได้รับการอนุมัติเรียบร้อย" });
+        const tg = await sendTelegramApprovalNotification({
+          room: reservation.room,
+          date: reservation.date,
+          trackingNumber: reservation.trackingNumber,
+        });
+        if (!tg.ok) {
+          toast({
+            title: "แจ้ง Telegram (อนุมัติ) ไม่สำเร็จ",
+            description: tg.error ?? "อนุมัติในระบบแล้ว แต่ส่งข้อความไม่ได้",
+            variant: "destructive",
+          });
+        }
       } else {
         // ปฏิเสธ → ลบออกจากฐานข้อมูลเลย
         await deleteDoc(doc(db, "reservations", id));
@@ -256,7 +269,7 @@ export default function AdminDashboard() {
                             size="sm"
                             variant="outline"
                             className="h-7 text-xs text-[hsl(var(--room-green))]"
-                            onClick={() => handleUpdateStatus(r.id, "approved", r.room)}
+                            onClick={() => handleUpdateStatus(r, "approved")}
                           >
                             <Check className="h-3 w-3 mr-1" /> อนุมัติ
                           </Button>
@@ -264,7 +277,7 @@ export default function AdminDashboard() {
                             size="sm"
                             variant="outline"
                             className="h-7 text-xs text-destructive"
-                            onClick={() => handleUpdateStatus(r.id, "rejected", r.room)}
+                            onClick={() => handleUpdateStatus(r, "rejected")}
                           >
                             <X className="h-3 w-3 mr-1" /> ปฏิเสธ
                           </Button>

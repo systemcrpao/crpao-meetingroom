@@ -256,7 +256,7 @@ export default function ReservationForm() {
         ...baseFormData,
         date: datesToBook.length > 1
           ? `${formatDateRangeShortBE(datesToBook[0], datesToBook[datesToBook.length - 1])} (${datesToBook.length} วัน)`
-          : firstDateStr,
+          : formatDateThaiBE(datesToBook[0]),
         trackingNumber,
       };
       const telegramResult = await sendTelegramNotification(telegramData);

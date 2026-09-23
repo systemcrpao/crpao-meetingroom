@@ -279,13 +279,27 @@ export default function AdminManageRooms() {
                     value={row.colorKey}
                     onValueChange={(v) => updateRow(row.id, { colorKey: v as RoomColorKey })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="gap-2">
+                      <span
+                        className={cn(
+                          "h-4 w-4 rounded-sm shrink-0 border border-border/60",
+                          roomSolidColorClass(row.colorKey),
+                        )}
+                      />
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {ROOM_COLOR_OPTIONS.map((c) => (
                         <SelectItem key={c.key} value={c.key}>
-                          {c.label}
+                          <span className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                "h-3 w-3 rounded-sm shrink-0",
+                                roomSolidColorClass(c.key),
+                              )}
+                            />
+                            {c.label}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>

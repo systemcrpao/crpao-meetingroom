@@ -35,6 +35,26 @@ export interface MeetingRoomDoc {
   colorKey: RoomColorKey;
 }
 
+export const ROOM_COLOR_KEYS: RoomColorKey[] = [
+  "green",
+  "blue",
+  "purple",
+  "orange",
+  "red",
+  "teal",
+  "pink",
+  "amber",
+  "cyan",
+  "slate",
+];
+
+export function normalizeRoomColorKey(key: unknown): RoomColorKey {
+  if (typeof key === "string" && (ROOM_COLOR_KEYS as string[]).includes(key)) {
+    return key as RoomColorKey;
+  }
+  return "slate";
+}
+
 export const ROOM_COLOR_OPTIONS: { key: RoomColorKey; label: string }[] = [
   { key: "green", label: "เขียว" },
   { key: "blue", label: "น้ำเงิน" },
@@ -43,7 +63,7 @@ export const ROOM_COLOR_OPTIONS: { key: RoomColorKey; label: string }[] = [
   { key: "red", label: "แดง" },
   { key: "teal", label: "เขียวน้ำทะเล" },
   { key: "pink", label: "ชมพู" },
-  { key: "amber", label: "เหลืองอำพัน" },
+  { key: "amber", label: "เหลือง" },
   { key: "cyan", label: "ฟ้า" },
   { key: "slate", label: "เทา" },
 ];
@@ -132,7 +152,15 @@ export function findMeetingRoom(
   rooms: MeetingRoom[],
 ): MeetingRoom | undefined {
   const key = resolveRoom(storedRoom);
-  return rooms.find((r) => r.value === key || r.id === key);
+  const trimmed = key.trim();
+  return rooms.find(
+    (r) =>
+      r.value === key ||
+      r.id === key ||
+      r.value === trimmed ||
+      r.label === key ||
+      r.label === trimmed,
+  );
 }
 
 export function getRoomLabelFromList(room: string, rooms: MeetingRoom[]): string {
@@ -145,16 +173,16 @@ export function roomColorClassFromList(
   light = false,
 ): string {
   const def = findMeetingRoom(room, rooms);
-  const key = def?.colorKey ?? "slate";
+  const key = normalizeRoomColorKey(def?.colorKey);
   return light ? COLOR_LIGHT[key] : COLOR_SOLID[key];
 }
 
-export function roomSolidColorClass(colorKey: RoomColorKey): string {
-  return COLOR_SOLID[colorKey];
+export function roomSolidColorClass(colorKey: RoomColorKey | string): string {
+  return COLOR_SOLID[normalizeRoomColorKey(colorKey)];
 }
 
-export function roomLightColorClass(colorKey: RoomColorKey): string {
-  return COLOR_LIGHT[colorKey];
+export function roomLightColorClass(colorKey: RoomColorKey | string): string {
+  return COLOR_LIGHT[normalizeRoomColorKey(colorKey)];
 }
 
 export function roomMatchesFilterWithList(
@@ -173,7 +201,7 @@ export function docToMeetingRoom(id: string, data: MeetingRoomDoc): MeetingRoom 
     label: data.label || data.value || id,
     enabled: data.enabled !== false,
     sortOrder: Number(data.sortOrder ?? 0),
-    colorKey: data.colorKey || "slate",
+    colorKey: normalizeRoomColorKey(data.colorKey),
   };
 }
 

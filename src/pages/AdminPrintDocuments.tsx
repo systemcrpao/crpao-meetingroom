@@ -91,7 +91,7 @@ export default function AdminPrintDocuments() {
   };
 
   return (
-    <div className="space-y-4 max-w-[1400px]">
+    <div className="space-y-4 w-full max-w-none -mx-1 sm:-mx-2 md:-mx-3">
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between pb-4">
           <div className="space-y-1">
@@ -180,8 +180,8 @@ export default function AdminPrintDocuments() {
             </div>
           </div>
 
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
+          <div className="rounded-md border overflow-x-auto w-full">
+            <Table className="w-full min-w-[1080px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12 text-center">ลำดับ</TableHead>
@@ -189,8 +189,8 @@ export default function AdminPrintDocuments() {
                   <TableHead>วันที่</TableHead>
                   <TableHead className="whitespace-nowrap">เวลา</TableHead>
                   <TableHead>ห้อง</TableHead>
-                  <TableHead>เรื่อง</TableHead>
-                  <TableHead>หน่วยงาน</TableHead>
+                  <TableHead className="min-w-[220px]">เรื่อง</TableHead>
+                  <TableHead className="min-w-[180px]">หน่วยงาน</TableHead>
                   <TableHead>ผู้จอง</TableHead>
                   <TableHead className="text-center">สถานะ</TableHead>
                   <TableHead className="w-14 text-center">พิมพ์แบบฟอร์ม</TableHead>
@@ -222,8 +222,8 @@ export default function AdminPrintDocuments() {
                           {resolveRoom(r.room)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm max-w-[200px]">{r.topic}</TableCell>
-                      <TableCell className="text-sm max-w-[160px] truncate">{r.department}</TableCell>
+                      <TableCell className="text-sm align-top">{r.topic}</TableCell>
+                      <TableCell className="text-sm align-top">{r.department}</TableCell>
                       <TableCell className="text-sm">{r.bookerName}</TableCell>
                       <TableCell className="text-center">
                         <Badge variant={STATUS_MAP[r.status]?.variant ?? "outline"} className="text-xs">

@@ -8,7 +8,7 @@ import { th } from "date-fns/locale";
 import {
   ChevronLeft, ChevronRight, CalendarDays, CalendarRange,
   Clock, MapPin, User, Building, LayoutPanelLeft, ClipboardEdit,
-  ChevronUp, PanelTop,
+  ChevronUp, ChevronDown,
 } from "lucide-react";
 import { useThaiPublicHolidays } from "@/hooks/useThaiPublicHolidays";
 import {
@@ -167,22 +167,9 @@ export default function PublicPage() {
     <div className="flex flex-col min-h-full">
       {!layoutBarHidden ? (
         <div className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 px-3 md:px-5 py-2.5">
-          <div className="flex flex-col gap-2 max-w-[1600px] mx-auto">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs text-muted-foreground sm:text-sm font-medium">มุมมองหน้าจอง</p>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-xs text-muted-foreground shrink-0 gap-1"
-                onClick={() => setLayoutBarHiddenAndSave(true)}
-                aria-label="ซ่อนแถบมุมมอง"
-              >
-                <ChevronUp className="h-4 w-4" />
-                <span className="hidden sm:inline">ซ่อน</span>
-              </Button>
-            </div>
-            <div className="flex rounded-lg border overflow-hidden w-full sm:w-auto sm:self-end">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 max-w-[1600px] mx-auto">
+            <p className="text-xs text-muted-foreground sm:text-sm font-medium shrink-0">มุมมองหน้าจอง</p>
+            <div className="flex rounded-lg border overflow-hidden w-full sm:w-auto">
               <Button
                 type="button"
                 variant={pageLayout === "both" ? "default" : "ghost"}
@@ -213,34 +200,34 @@ export default function PublicPage() {
                 <ClipboardEdit className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">แบบฟอร์ม</span>
               </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="rounded-none h-9 px-2.5 border-l shrink-0 text-muted-foreground hover:text-foreground"
+                onClick={() => setLayoutBarHiddenAndSave(true)}
+                aria-label="พับแถบมุมมอง"
+              >
+                <ChevronUp className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
       ) : (
-        <>
-          <div className="sticky top-0 z-20 border-b bg-card/90 px-3 py-1.5 md:hidden">
+        <div className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+          <div className="flex justify-center max-w-[1600px] mx-auto">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="w-full h-8 text-xs gap-1.5"
+              className="h-7 w-full sm:w-auto px-4 rounded-none text-muted-foreground hover:text-foreground"
               onClick={() => setLayoutBarHiddenAndSave(false)}
+              aria-label="แสดงแถบมุมมอง"
             >
-              <PanelTop className="h-3.5 w-3.5" />
-              แสดงมุมมอง ({pageLayout === "both" ? "ทั้งคู่" : pageLayout === "calendar" ? "ปฏิทิน" : "แบบฟอร์ม"})
+              <ChevronDown className="h-4 w-4" />
             </Button>
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="hidden md:flex fixed bottom-6 right-6 z-30 h-10 shadow-lg gap-1.5 text-xs"
-            onClick={() => setLayoutBarHiddenAndSave(false)}
-          >
-            <PanelTop className="h-4 w-4" />
-            มุมมองหน้าจอง
-          </Button>
-        </>
+        </div>
       )}
 
     <div
@@ -619,7 +606,7 @@ export default function PublicPage() {
         className={cn(
           "w-full px-3 md:px-5 pt-3 md:pt-5 pb-3 md:pb-5",
           pageLayout === "both" && "lg:w-[42%] xl:w-[35%] lg:self-start lg:sticky",
-          pageLayout === "both" && (layoutBarHidden ? "lg:top-2" : "lg:top-[3.25rem]"),
+          pageLayout === "both" && (layoutBarHidden ? "lg:top-7" : "lg:top-[3.25rem]"),
           pageLayout === "form" && "max-w-3xl mx-auto flex-1",
         )}
       >

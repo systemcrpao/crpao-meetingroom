@@ -301,12 +301,19 @@ export default function TrackingPage() {
               {pendingChange && (
                 <p className="text-xs text-center text-muted-foreground">
                   มีคำขอ{reservation.changeRequest?.type === "cancel" ? "ยกเลิก" : "แก้ไข"}รอเจ้าหน้าที่อนุมัติ
-                  {reservation.changeRequest?.type === "edit" && reservation.changeRequest.date && (
+                  {reservation.changeRequest?.type === "edit" && (
                     <>
                       {" "}
                       (ขอเปลี่ยนเป็น{" "}
-                      {formatDateThaiLongBE(reservation.changeRequest.date)}{" "}
-                      {reservation.changeRequest.startTime}–{reservation.changeRequest.endTime} น.)
+                      {reservation.changeRequest.room &&
+                      reservation.changeRequest.room !== reservation.room
+                        ? `${getRoomLabel(reservation.changeRequest.room, allRooms)} · `
+                        : ""}
+                      {reservation.changeRequest.date
+                        ? formatDateThaiLongBE(reservation.changeRequest.date)
+                        : formatDateThaiLongBE(reservation.date)}{" "}
+                      {reservation.changeRequest.startTime ?? reservation.startTime}–
+                      {reservation.changeRequest.endTime ?? reservation.endTime} น.)
                     </>
                   )}
                 </p>

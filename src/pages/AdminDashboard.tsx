@@ -142,7 +142,7 @@ export default function AdminDashboard() {
 
       if (cr?.type === "edit") {
         if (newStatus === "approved") {
-          await approveEditChangeRequest(id, room);
+          await approveEditChangeRequest(id);
           toast({ title: "อนุมัติการแก้ไขแล้ว", description: "อัปเดตวันและเวลาในปฏิทินแล้ว" });
         } else {
           await rejectChangeRequest(reservation);
@@ -305,10 +305,22 @@ export default function AdminDashboard() {
                     <TableRow key={r.id}>
                       <TableCell className="font-medium text-xs">{r.department}</TableCell>
                       <TableCell className="text-xs max-w-[180px] truncate">{r.topic}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={cn("text-xs", roomColorClass(r.room, true, allRooms))}>
-                          {resolveRoom(r.room)}
-                        </Badge>
+                      <TableCell className="text-xs">
+                        {r.changeRequest?.type === "edit" && r.changeRequest.room && r.changeRequest.room !== r.room ? (
+                          <>
+                            <Badge variant="outline" className={cn("text-xs", roomColorClass(r.room, true, allRooms))}>
+                              {resolveRoom(r.room)}
+                            </Badge>
+                            <br />
+                            <span className="text-primary font-medium mt-1 inline-block">
+                              → {resolveRoom(r.changeRequest.room)}
+                            </span>
+                          </>
+                        ) : (
+                          <Badge variant="outline" className={cn("text-xs", roomColorClass(r.room, true, allRooms))}>
+                            {resolveRoom(r.room)}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-xs whitespace-nowrap">
                         {r.changeRequest?.type === "edit" ? (

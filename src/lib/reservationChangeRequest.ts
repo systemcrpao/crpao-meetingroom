@@ -11,16 +11,23 @@ import {
   deleteField,
   writeBatch,
 } from "firebase/firestore";
-import { format } from "date-fns";
+import { format, isBefore, startOfDay } from "date-fns";
 import { findReservationOverlap, overlapErrorMessage, timeToMinutes } from "@/lib/reservationOverlap";
 
 export type ChangeRequestType = "edit" | "cancel";
 
 export interface ChangeRequest {
   type: ChangeRequestType;
+  room?: string;
   date?: string;
   startTime?: string;
   endTime?: string;
+}
+
+function assertBookingDateNotInPast(date: Date): void {
+  if (isBefore(startOfDay(date), startOfDay(new Date()))) {
+    throw new Error("ไม่สามารถเลือกวันที่ย้อนหลังจากวันนี้ได้");
+  }
 }
 
 export type ReservationByTracking = {
@@ -54,6 +61,8 @@ export async function submitEditChangeRequest(
   room: string,
   payload: { date: Date; startTime: string; endTime: string },
 ): Promise<void> {
+  assertBookingDateNotInPast(payload.date);
+
   const start = timeToMinutes(payload.startTime);
   const end = timeToMinutes(payload.endTime);
   if (end <= start) {
@@ -62,7 +71,7 @@ export async function submitEditChangeRequest(
 
   const dateStr = format(payload.date, "yyyy-MM-dd");
   const conflict = await findReservationOverlap(
-    room,
+    room.trim(),
     dateStr,
     payload.startTime,
     payload.endTime,
@@ -75,6 +84,7 @@ export async function submitEditChangeRequest(
   await updateDoc(doc(db, "reservations", reservationId), {
     changeRequest: {
       type: "edit",
+      room: room.trim(),
       date: dateStr,
       startTime: payload.startTime,
       endTime: payload.endTime,
@@ -116,7 +126,7 @@ export async function clearChangeRequestByTracking(trackingNumber: string): Prom
   await batch.commit();
 }
 
-export async function approveEditChangeRequest(reservationId: string, room: string): Promise<void> {
+export async function approveEditChangeRequest(reservationId: string): Promise<void> {
   const ref = doc(db, "reservations", reservationId);
   const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error("ไม่พบรายการจอง");
@@ -127,18 +137,22 @@ export async function approveEditChangeRequest(reservationId: string, room: stri
     throw new Error("ไม่พบคำขอแก้ไขวัน/เวลา");
   }
 
+  const targetRoom = String(cr.room ?? data.room ?? "").trim();
+  if (!targetRoom) throw new Error("ไม่พบห้องประชุมในคำขอแก้ไข");
+
   const conflict = await findReservationOverlap(
-    room,
+    targetRoom,
     cr.date,
     cr.startTime,
     cr.endTime,
     [reservationId],
   );
   if (conflict) {
-    throw new Error(overlapErrorMessage(room, cr.date, conflict));
+    throw new Error(overlapErrorMessage(targetRoom, cr.date, conflict));
   }
 
   await updateDoc(ref, {
+    room: targetRoom,
     date: cr.date,
     startTime: cr.startTime,
     endTime: cr.endTime,

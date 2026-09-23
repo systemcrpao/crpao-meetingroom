@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { format, parseISO } from "date-fns";
+import { format, isBefore, parseISO, startOfDay } from "date-fns";
 import { th } from "date-fns/locale";
 import { CalendarIcon, ArrowLeft, Save, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TIME_SLOTS, roomColorClass, getRoomLabel } from "@/lib/mockData";
+import { TIME_SLOTS, getRoomLabel } from "@/lib/mockData";
 import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { formatDateThaiLongBE } from "@/lib/thaiDate";
 import {
@@ -18,7 +18,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -37,7 +36,6 @@ import {
 
 type RowEdit = {
   id: string;
-  room: string;
   date: Date;
   startTime: string;
   endTime: string;
@@ -50,16 +48,19 @@ export default function RequestEditBookingPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { allRooms } = useMeetingRooms();
+  const { activeRooms, allRooms } = useMeetingRooms();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [canceling, setCanceling] = useState(false);
   const [meta, setMeta] = useState<any | null>(null);
   const [rows, setRows] = useState<RowEdit[]>([]);
+  const [selectedRoom, setSelectedRoom] = useState("");
+  const [originalRoom, setOriginalRoom] = useState("");
   const [loadError, setLoadError] = useState("");
 
   const trackingCode = (code ?? "").trim().toUpperCase();
+  const today = useMemo(() => startOfDay(new Date()), []);
 
   useEffect(() => {
     if (!trackingCode) {
@@ -96,13 +97,15 @@ export default function RequestEditBookingPage() {
           return;
         }
 
+        const room = String(first.room ?? "");
         setMeta(first);
+        setOriginalRoom(room);
+        setSelectedRoom(room);
         setRows(
           list.map((r) => {
             const dateStr = String(r.date ?? "");
             return {
               id: r.id,
-              room: String(r.room ?? ""),
               date: dateStr ? parseISO(dateStr) : new Date(),
               startTime: String(r.startTime ?? ""),
               endTime: String(r.endTime ?? ""),
@@ -130,6 +133,18 @@ export default function RequestEditBookingPage() {
     return TIME_SLOTS.filter((t) => t > startTime);
   };
 
+  const pickDate = (id: string, d: Date) => {
+    if (isBefore(startOfDay(d), today)) {
+      toast({
+        title: "วันที่ไม่ถูกต้อง",
+        description: "ไม่สามารถเลือกวันที่ย้อนหลังจากวันนี้ได้",
+        variant: "destructive",
+      });
+      return;
+    }
+    updateRow(id, { date: d });
+  };
+
   const updateRow = (id: string, patch: Partial<Pick<RowEdit, "date" | "startTime" | "endTime">>) => {
     setRows((prev) =>
       prev.map((r) => {
@@ -144,26 +159,36 @@ export default function RequestEditBookingPage() {
     );
   };
 
-  const changedRows = useMemo(
+  const roomChanged = selectedRoom !== originalRoom;
+
+  const rowsToSubmit = useMemo(
     () =>
       rows.filter(
         (r) =>
+          roomChanged ||
           format(r.date, "yyyy-MM-dd") !== r.originalDate ||
           r.startTime !== r.originalStart ||
           r.endTime !== r.originalEnd,
       ),
-    [rows],
+    [rows, roomChanged],
   );
 
   const handleSave = async () => {
-    if (changedRows.length === 0) {
-      toast({ title: "ไม่มีการเปลี่ยนแปลง", description: "กรุณาแก้ไขวันหรือเวลาก่อนบันทึก" });
+    if (rowsToSubmit.length === 0) {
+      toast({
+        title: "ไม่มีการเปลี่ยนแปลง",
+        description: "กรุณาแก้ไขห้อง วัน หรือเวลาก่อนบันทึก",
+      });
+      return;
+    }
+    if (!selectedRoom) {
+      toast({ title: "กรุณาเลือกห้องประชุม", variant: "destructive" });
       return;
     }
     setSaving(true);
     try {
-      for (const row of changedRows) {
-        await submitEditChangeRequest(row.id, row.room, {
+      for (const row of rowsToSubmit) {
+        await submitEditChangeRequest(row.id, selectedRoom, {
           date: row.date,
           startTime: row.startTime,
           endTime: row.endTime,
@@ -214,7 +239,7 @@ export default function RequestEditBookingPage() {
               หมายเลขติดตาม{" "}
               <span className="font-mono font-semibold tracking-widest">{trackingCode || "—"}</span>
               {" · "}
-              แก้ไขได้เฉพาะวันและเวลา ข้อมูลอื่นไม่สามารถเปลี่ยนได้
+              แก้ไขได้เฉพาะห้องประชุม วัน และเวลา (เลือกวันย้อนหลังไม่ได้)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -239,19 +264,34 @@ export default function RequestEditBookingPage() {
                     <p className="font-medium">{meta.topic}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">ห้องประชุม</p>
-                    <Badge variant="outline" className={cn("text-xs mt-0.5", roomColorClass(meta.room, true, allRooms))}>
-                      {getRoomLabel(meta.room, allRooms)}
-                    </Badge>
-                  </div>
-                  <div>
                     <p className="text-xs text-muted-foreground">หน่วยงาน</p>
                     <p className="font-medium text-xs">{meta.department}</p>
                   </div>
-                  <div>
+                  <div className="sm:col-span-2">
                     <p className="text-xs text-muted-foreground">ผู้จอง</p>
                     <p className="font-medium">{meta.bookerName}</p>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>ห้องประชุม</Label>
+                  <Select value={selectedRoom} onValueChange={setSelectedRoom}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="เลือกห้องประชุม" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeRooms.map((r) => (
+                        <SelectItem key={r.value} value={r.value}>
+                          {r.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {originalRoom && selectedRoom !== originalRoom && (
+                    <p className="text-xs text-muted-foreground">
+                      เดิม: {getRoomLabel(originalRoom, allRooms)}
+                    </p>
+                  )}
                 </div>
 
                 <Separator />
@@ -275,7 +315,8 @@ export default function RequestEditBookingPage() {
                             <Calendar
                               mode="single"
                               selected={row.date}
-                              onSelect={(d) => d && updateRow(row.id, { date: d })}
+                              onSelect={(d) => d && pickDate(row.id, d)}
+                              disabled={(d) => isBefore(startOfDay(d), today)}
                               locale={th}
                               initialFocus
                               className="p-3 pointer-events-auto"

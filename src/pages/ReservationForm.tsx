@@ -376,7 +376,7 @@ export default function ReservationForm() {
             <Separator />
 
             {/* Summary */}
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-xs text-muted-foreground">เรื่อง</p>
                 <p className="font-medium">{savedFormData?.topic}</p>
@@ -420,7 +420,7 @@ export default function ReservationForm() {
                 <ImageDown className="h-4 w-4" />
                 บันทึกรูปภาพ (PNG)
               </Button>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Button
                   variant="outline"
                   className="gap-1.5"
@@ -556,7 +556,7 @@ export default function ReservationForm() {
                 </Popover>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium flex items-center gap-1.5">
                     <CalendarIcon className="h-3.5 w-3.5 text-emerald-500" /> วันที่เริ่มต้น
@@ -619,7 +619,7 @@ export default function ReservationForm() {
             )}
 
             {/* Time */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium flex items-center gap-1.5">
                   <Clock3 className="h-3.5 w-3.5 text-emerald-500" /> เวลาเริ่ม
@@ -684,7 +684,7 @@ export default function ReservationForm() {
               <Label className="text-xs font-medium flex items-center gap-1.5">
                 <MonitorSpeaker className="h-3.5 w-3.5 text-orange-500" /> อุปกรณ์ที่ต้องการ
               </Label>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {EQUIPMENT_OPTIONS.map((item) => (
                   <div key={item} className="flex items-center space-x-2">
                     <Checkbox
@@ -713,7 +713,7 @@ export default function ReservationForm() {
               <Input className="h-9 text-sm" placeholder="ระบุชื่อ-นามสกุล ผู้จอง" value={bookerName} onChange={(e) => setBookerName(e.target.value)} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">ตำแหน่ง</Label>
                 <Input className="h-9 text-sm" placeholder="เช่น นักวิชาการ" value={bookerPosition} onChange={(e) => setBookerPosition(e.target.value)} />

@@ -8,6 +8,7 @@ import { th } from "date-fns/locale";
 import {
   ChevronLeft, ChevronRight, CalendarDays, CalendarRange,
   Clock, MapPin, User, Building, LayoutPanelLeft, ClipboardEdit,
+  ChevronUp, PanelTop,
 } from "lucide-react";
 import { useThaiPublicHolidays } from "@/hooks/useThaiPublicHolidays";
 import {
@@ -44,6 +45,7 @@ const HOURS = Array.from({ length: 11 }, (_, i) => i + 8);
 
 export type BookingPageLayout = "both" | "calendar" | "form";
 const LAYOUT_STORAGE_KEY = "booking-page-layout";
+const LAYOUT_BAR_HIDDEN_KEY = "booking-page-layout-bar-hidden";
 
 function loadBookingPageLayout(): BookingPageLayout {
   try {
@@ -53,6 +55,14 @@ function loadBookingPageLayout(): BookingPageLayout {
     /* ignore */
   }
   return "both";
+}
+
+function loadLayoutBarHidden(): boolean {
+  try {
+    return localStorage.getItem(LAYOUT_BAR_HIDDEN_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 export default function PublicPage() {
@@ -65,6 +75,28 @@ export default function PublicPage() {
   const [selectedDay, setSelectedDay]   = useState<Date | null>(() => new Date());
   const [roomFilter, setRoomFilter]     = useState("all");
   const [pageLayout, setPageLayout]     = useState<BookingPageLayout>(loadBookingPageLayout);
+  const [layoutBarHidden, setLayoutBarHidden] = useState(loadLayoutBarHidden);
+
+  const setLayoutBarHiddenAndSave = (hidden: boolean) => {
+    setLayoutBarHidden(hidden);
+    try {
+      localStorage.setItem(LAYOUT_BAR_HIDDEN_KEY, hidden ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  };
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(LAYOUT_BAR_HIDDEN_KEY) != null) return;
+      if (window.matchMedia("(max-width: 767px)").matches) {
+        setLayoutBarHiddenAndSave(true);
+      }
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setLayoutAndSave = (layout: BookingPageLayout) => {
     setPageLayout(layout);
@@ -133,48 +165,88 @@ export default function PublicPage() {
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 px-3 md:px-5 py-2.5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 max-w-[1600px] mx-auto">
-          <p className="text-xs text-muted-foreground sm:text-sm">มุมมองหน้าจอง</p>
-          <div className="flex rounded-lg border overflow-hidden w-full sm:w-auto">
-            <Button
-              type="button"
-              variant={pageLayout === "both" ? "default" : "ghost"}
-              size="sm"
-              className="rounded-none h-9 flex-1 sm:flex-none px-3 text-xs gap-1.5"
-              onClick={() => setLayoutAndSave("both")}
-            >
-              <LayoutPanelLeft className="h-3.5 w-3.5 shrink-0" />
-              ทั้งคู่
-            </Button>
-            <Button
-              type="button"
-              variant={pageLayout === "calendar" ? "default" : "ghost"}
-              size="sm"
-              className="rounded-none h-9 flex-1 sm:flex-none px-3 text-xs gap-1.5 border-x"
-              onClick={() => setLayoutAndSave("calendar")}
-            >
-              <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-              ปฏิทิน
-            </Button>
-            <Button
-              type="button"
-              variant={pageLayout === "form" ? "default" : "ghost"}
-              size="sm"
-              className="rounded-none h-9 flex-1 sm:flex-none px-3 text-xs gap-1.5"
-              onClick={() => setLayoutAndSave("form")}
-            >
-              <ClipboardEdit className="h-3.5 w-3.5 shrink-0" />
-              แบบฟอร์ม
-            </Button>
+      {!layoutBarHidden ? (
+        <div className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 px-3 md:px-5 py-2.5">
+          <div className="flex flex-col gap-2 max-w-[1600px] mx-auto">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground sm:text-sm font-medium">มุมมองหน้าจอง</p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs text-muted-foreground shrink-0 gap-1"
+                onClick={() => setLayoutBarHiddenAndSave(true)}
+                aria-label="ซ่อนแถบมุมมอง"
+              >
+                <ChevronUp className="h-4 w-4" />
+                <span className="hidden sm:inline">ซ่อน</span>
+              </Button>
+            </div>
+            <div className="flex rounded-lg border overflow-hidden w-full sm:w-auto sm:self-end">
+              <Button
+                type="button"
+                variant={pageLayout === "both" ? "default" : "ghost"}
+                size="sm"
+                className="rounded-none h-9 flex-1 sm:flex-none px-2 sm:px-3 text-xs gap-1"
+                onClick={() => setLayoutAndSave("both")}
+              >
+                <LayoutPanelLeft className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">ทั้งคู่</span>
+              </Button>
+              <Button
+                type="button"
+                variant={pageLayout === "calendar" ? "default" : "ghost"}
+                size="sm"
+                className="rounded-none h-9 flex-1 sm:flex-none px-2 sm:px-3 text-xs gap-1 border-x"
+                onClick={() => setLayoutAndSave("calendar")}
+              >
+                <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">ปฏิทิน</span>
+              </Button>
+              <Button
+                type="button"
+                variant={pageLayout === "form" ? "default" : "ghost"}
+                size="sm"
+                className="rounded-none h-9 flex-1 sm:flex-none px-2 sm:px-3 text-xs gap-1"
+                onClick={() => setLayoutAndSave("form")}
+              >
+                <ClipboardEdit className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">แบบฟอร์ม</span>
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="sticky top-0 z-20 border-b bg-card/90 px-3 py-1.5 md:hidden">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-xs gap-1.5"
+              onClick={() => setLayoutBarHiddenAndSave(false)}
+            >
+              <PanelTop className="h-3.5 w-3.5" />
+              แสดงมุมมอง ({pageLayout === "both" ? "ทั้งคู่" : pageLayout === "calendar" ? "ปฏิทิน" : "แบบฟอร์ม"})
+            </Button>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="hidden md:flex fixed bottom-6 right-6 z-30 h-10 shadow-lg gap-1.5 text-xs"
+            onClick={() => setLayoutBarHiddenAndSave(false)}
+          >
+            <PanelTop className="h-4 w-4" />
+            มุมมองหน้าจอง
+          </Button>
+        </>
+      )}
 
     <div
       className={cn(
         "flex flex-col flex-1",
-        pageLayout === "both" && "xl:flex-row xl:items-start",
+        pageLayout === "both" && "lg:flex-row lg:items-start",
       )}
     >
 
@@ -183,7 +255,7 @@ export default function PublicPage() {
       <div
         className={cn(
           "w-full flex flex-col",
-          pageLayout === "both" && "xl:w-[70%] xl:border-r",
+          pageLayout === "both" && "lg:w-[58%] xl:w-[65%] lg:border-r",
           pageLayout === "calendar" && "max-w-6xl mx-auto",
         )}
       >
@@ -211,7 +283,7 @@ export default function PublicPage() {
                     </Button>
                   </div>
                   <Select value={roomFilter} onValueChange={setRoomFilter}>
-                    <SelectTrigger className="h-8 w-[160px] text-xs">
+                    <SelectTrigger className="h-8 w-full min-w-0 sm:w-[160px] text-xs">
                       <SelectValue placeholder="ทุกห้อง" />
                     </SelectTrigger>
                     <SelectContent>
@@ -281,7 +353,7 @@ export default function PublicPage() {
                       )}>{d}</div>
                     ))}
                   </div>
-                  <div className="grid grid-cols-7 border-l border-t rounded-md overflow-hidden">
+                  <div className="grid grid-cols-7 border-l border-t rounded-md overflow-hidden min-w-0">
                     {Array.from({ length: padStart }).map((_, i) => (
                       <div key={`pad-${i}`} className="border-r border-b aspect-square bg-muted/20" />
                     ))}
@@ -300,7 +372,7 @@ export default function PublicPage() {
                           key={day.toISOString()}
                           onClick={() => setSelectedDay(day)}
                           className={cn(
-                            "border-r border-b aspect-square p-1 flex flex-col gap-0.5 min-h-0 overflow-hidden",
+                            "border-r border-b p-0.5 sm:p-1 flex flex-col gap-0.5 min-h-[2.75rem] sm:min-h-0 sm:aspect-square overflow-hidden",
                             "cursor-pointer transition-colors select-none",
                             !inMonth && "opacity-40 bg-muted/20",
                             isToday && !isSelected && "bg-primary/5",
@@ -345,8 +417,9 @@ export default function PublicPage() {
 
               {/* ===== WEEK VIEW (Gantt) ===== */}
               {calView === "week" && (
+                <div className="overflow-x-auto -mx-1 px-1 touch-pan-x">
                 <>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-3 min-w-[300px]">
                     <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))}>
                       <ChevronLeft className="h-4 w-4 mr-1" /> ก่อน
                     </Button>
@@ -460,6 +533,7 @@ export default function PublicPage() {
                     })}
                   </div>
                 </>
+                </div>
               )}
 
               {/* ===== SELECTED DAY DETAIL (month view only) ===== */}
@@ -544,7 +618,8 @@ export default function PublicPage() {
       <div
         className={cn(
           "w-full px-3 md:px-5 pt-3 md:pt-5 pb-3 md:pb-5",
-          pageLayout === "both" && "xl:w-[30%] xl:self-start xl:sticky xl:top-[52px]",
+          pageLayout === "both" && "lg:w-[42%] xl:w-[35%] lg:self-start lg:sticky",
+          pageLayout === "both" && (layoutBarHidden ? "lg:top-2" : "lg:top-[3.25rem]"),
           pageLayout === "form" && "max-w-3xl mx-auto flex-1",
         )}
       >

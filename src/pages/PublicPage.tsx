@@ -113,7 +113,7 @@ export default function PublicPage() {
     return [...years];
   }, [monthDate, weekStart]);
 
-  const { getHolidaysForDay, loading: holidaysLoading } = useThaiPublicHolidays(holidayYears);
+  const { getHolidaysForDay } = useThaiPublicHolidays(holidayYears);
 
   const selectedDayHolidays = useMemo(
     () => (selectedDay ? getHolidaysForDay(selectedDay) : []),
@@ -181,21 +181,7 @@ export default function PublicPage() {
             <CardHeader className="pb-2 pt-3 px-3 md:px-4">
               {/* Controls */}
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-                <div>
-                  <CardTitle className="text-base">ตารางการจองห้องประชุม</CardTitle>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    วันหยุดราชการจาก{" "}
-                    <a
-                      href="https://github.com/ppraserts/thailand-open-data/tree/main/data/thai-public-holidays"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline hover:text-foreground"
-                    >
-                      Thailand Open Data
-                    </a>
-                    {holidaysLoading && " · กำลังโหลด…"}
-                  </p>
-                </div>
+                <CardTitle className="text-base">ตารางการจองห้องประชุม</CardTitle>
                 <div className="flex flex-wrap gap-2 items-center">
                   <div className="flex rounded-md border overflow-hidden">
                     <Button
@@ -238,10 +224,6 @@ export default function PublicPage() {
                   <div className="flex items-center gap-1 ml-1 pl-2 border-l">
                     <div className="h-2.5 w-2.5 rounded-sm border border-dashed border-muted-foreground/60 bg-muted-foreground/25" />
                     <span className="text-[11px] text-muted-foreground">รออนุมัติ</span>
-                  </div>
-                  <div className="flex items-center gap-1 ml-1 pl-2 border-l">
-                    <div className="h-2.5 w-2.5 rounded-sm bg-rose-200 border border-rose-400 dark:bg-rose-900 dark:border-rose-600" />
-                    <span className="text-[11px] text-muted-foreground">วันหยุดราชการ</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 sm:ml-auto">
@@ -287,15 +269,12 @@ export default function PublicPage() {
                       )}>{d}</div>
                     ))}
                   </div>
-                  <div className="grid grid-cols-7 border-l border-t rounded-md overflow-hidden auto-rows-fr">
+                  <div className="grid grid-cols-7 border-l border-t rounded-md overflow-hidden">
                     {Array.from({ length: padStart }).map((_, i) => (
-                      <div key={`pad-${i}`} className="border-r border-b min-h-[5rem] bg-muted/20" />
+                      <div key={`pad-${i}`} className="border-r border-b aspect-square bg-muted/20" />
                     ))}
                     {days.map((day) => {
                       const bookings   = getBookingsForDay(day);
-                      const dayHolidays = getHolidaysForDay(day);
-                      const isHoliday  = dayHolidays.length > 0;
-                      const bookingCap = isHoliday ? 1 : 3;
                       const isToday    = isSameDay(day, new Date());
                       const isSelected = !!selectedDay && isSameDay(day, selectedDay);
                       const inMonth    = isSameMonth(day, monthDate);
@@ -306,16 +285,14 @@ export default function PublicPage() {
                           key={day.toISOString()}
                           onClick={() => setSelectedDay(day)}
                           className={cn(
-                            "border-r border-b p-1.5 flex flex-col gap-1 min-h-[5rem]",
-                            isHoliday && "min-h-[7.5rem]",
+                            "border-r border-b aspect-square p-1 flex flex-col gap-0.5",
                             "cursor-pointer transition-colors select-none",
                             !inMonth && "opacity-40 bg-muted/20",
                             isToday && !isSelected && "bg-primary/5",
                             isSelected && "bg-primary/15 ring-1 ring-inset ring-primary",
-                            isHoliday && !isSelected && "bg-rose-50/90 dark:bg-rose-950/35 ring-inset ring-rose-200/80 dark:ring-rose-800/60",
-                            !isSelected && !isToday && !isHoliday && isSun && "bg-red-50/70 hover:bg-red-100/60 dark:bg-red-950/30 dark:hover:bg-red-950/50",
-                            !isSelected && !isToday && !isHoliday && isSat && "bg-blue-50/70 hover:bg-blue-100/60 dark:bg-blue-950/30 dark:hover:bg-blue-950/50",
-                            !isSelected && !isToday && !isHoliday && !isSun && !isSat && "hover:bg-muted/40",
+                            !isSelected && !isToday && isSun && "bg-red-50/70 hover:bg-red-100/60 dark:bg-red-950/30 dark:hover:bg-red-950/50",
+                            !isSelected && !isToday && isSat && "bg-blue-50/70 hover:bg-blue-100/60 dark:bg-blue-950/30 dark:hover:bg-blue-950/50",
+                            !isSelected && !isToday && !isSun && !isSat && "hover:bg-muted/40",
                           )}
                         >
                           <div className={cn(
@@ -327,19 +304,7 @@ export default function PublicPage() {
                           )}>
                             {format(day, "d")}
                           </div>
-                          {isHoliday && (
-                            <div className="flex flex-col gap-1 flex-1 pointer-events-none">
-                              {dayHolidays.map((h) => (
-                                <p
-                                  key={`${h.date}-${h.name_th}`}
-                                  className="text-[11px] sm:text-xs leading-snug text-rose-900 dark:text-rose-100 font-semibold break-words whitespace-normal"
-                                >
-                                  {h.name_th}
-                                </p>
-                              ))}
-                            </div>
-                          )}
-                          {bookings.slice(0, bookingCap).map((r) => (
+                          {bookings.slice(0, 3).map((r) => (
                             <div key={r.id}
                               className={cn(
                                 "rounded px-1 py-0.5 text-[10px] leading-tight truncate pointer-events-none",
@@ -351,8 +316,8 @@ export default function PublicPage() {
                               {r.status === "pending" && "⧖ "}{r.startTime} {resolveRoom(r.room)}
                             </div>
                           ))}
-                          {bookings.length > bookingCap && (
-                            <div className="text-[10px] text-muted-foreground pl-0.5">+{bookings.length - bookingCap} รายการ</div>
+                          {bookings.length > 3 && (
+                            <div className="text-[10px] text-muted-foreground pl-0.5">+{bookings.length - 3} รายการ</div>
                           )}
                         </div>
                       );
@@ -393,8 +358,6 @@ export default function PublicPage() {
                   <div className="space-y-1">
                     {weekDays.map((day) => {
                       const bookings   = getBookingsForDay(day);
-                      const dayHolidays = getHolidaysForDay(day);
-                      const isHoliday  = dayHolidays.length > 0;
                       const isToday    = isSameDay(day, new Date());
                       const isSelected = !!selectedDay && isSameDay(day, selectedDay);
                       const isSun      = getDay(day) === 0;
@@ -408,10 +371,9 @@ export default function PublicPage() {
                             "cursor-pointer transition-colors select-none",
                             isToday && !isSelected && "border-primary/40 bg-primary/5",
                             isSelected && "border-primary bg-primary/10",
-                            isHoliday && !isSelected && "border-rose-300 bg-rose-50/70 dark:border-rose-800 dark:bg-rose-950/30",
-                            !isToday && !isSelected && !isHoliday && isSun && "border-red-200 bg-red-50/50 hover:bg-red-100/50 dark:border-red-900 dark:bg-red-950/25 dark:hover:bg-red-950/40",
-                            !isToday && !isSelected && !isHoliday && isSat && "border-blue-200 bg-blue-50/50 hover:bg-blue-100/50 dark:border-blue-900 dark:bg-blue-950/25 dark:hover:bg-blue-950/40",
-                            !isToday && !isSelected && !isHoliday && !isWeekend && "border-border hover:bg-muted/30",
+                            !isToday && !isSelected && isSun && "border-red-200 bg-red-50/50 hover:bg-red-100/50 dark:border-red-900 dark:bg-red-950/25 dark:hover:bg-red-950/40",
+                            !isToday && !isSelected && isSat && "border-blue-200 bg-blue-50/50 hover:bg-blue-100/50 dark:border-blue-900 dark:bg-blue-950/25 dark:hover:bg-blue-950/40",
+                            !isToday && !isSelected && !isWeekend && "border-border hover:bg-muted/30",
                           )}
                         >
                           <div className="w-[70px] flex-shrink-0 text-right pr-1 pt-0.5">
@@ -425,28 +387,12 @@ export default function PublicPage() {
                             )}>{format(day, "d")}</div>
                             <div className="text-[9px] text-muted-foreground">{format(day, "MMM", { locale: th })} {(day.getFullYear() + 543) % 100}</div>
                           </div>
-                          <div className="flex-1 min-w-0 relative">
-                            {isHoliday && dayHolidays.length > 0 && (
-                              <div className="mb-2 rounded-md border border-rose-200/80 bg-rose-50/90 dark:border-rose-800 dark:bg-rose-950/40 px-2 py-1.5 space-y-1">
-                                <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-900 dark:text-rose-100">
-                                  <Flag className="h-3.5 w-3.5 shrink-0" />
-                                  วันหยุดราชการ
-                                </div>
-                                {dayHolidays.map((h) => (
-                                  <p
-                                    key={`${h.date}-${h.name_th}`}
-                                    className="text-xs sm:text-sm leading-snug text-rose-950 dark:text-rose-50 font-medium break-words whitespace-normal"
-                                  >
-                                    {h.name_th}
-                                  </p>
-                                ))}
-                              </div>
-                            )}
-                            {bookings.length === 0 && !isHoliday ? (
+                          <div className="flex-1 min-w-0 overflow-hidden relative">
+                            {bookings.length === 0 ? (
                               <div className="h-5 flex items-center">
                                 <span className="text-[10px] text-muted-foreground italic">ไม่มีการจอง</span>
                               </div>
-                            ) : bookings.length === 0 ? null : (
+                            ) : (
                               <div className="space-y-0.5">
                                 {bookings
                                   .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""))

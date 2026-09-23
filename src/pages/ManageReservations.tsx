@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
+import { th } from "date-fns/locale";
 import { formatDateThaiBE, formatDateThaiLongBE } from "@/lib/thaiDate";
 import { Pencil, Trash2, CalendarIcon, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";

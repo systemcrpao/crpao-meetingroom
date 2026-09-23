@@ -1,13 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { collection, doc, onSnapshot, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { Shield, Save, Trash2, UserPlus } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { ROOMS } from "@/lib/mockData";
 import {
   adminDocId,
+  allRoomValues,
+  APP_ACCESS_DOC_ID,
+  APP_CONFIG_COLLECTION,
+  normalizeEmail,
+  parseSuperAdminEmails,
   type AdminUserDoc,
   type AdminRole,
 } from "@/lib/adminAccess";
+import { useAdminProfile } from "@/contexts/AdminProfileContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,10 +27,22 @@ type AdminRow = AdminUserDoc & { id: string };
 
 export default function AdminPermissions() {
   const { toast } = useToast();
+  const { remoteSuperAdminEmails } = useAdminProfile();
   const [admins, setAdmins] = useState<AdminRow[]>([]);
   const [newEmail, setNewEmail] = useState("");
+  const [newSuperEmail, setNewSuperEmail] = useState("");
   const [newRooms, setNewRooms] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [savingSuper, setSavingSuper] = useState(false);
+
+  const envSuperEmails = useMemo(() => [...parseSuperAdminEmails()], []);
+  const listedSuperEmails = useMemo(() => {
+    const merged = new Set<string>([
+      ...envSuperEmails,
+      ...remoteSuperAdminEmails.map(normalizeEmail),
+    ]);
+    return [...merged].sort((a, b) => a.localeCompare(b, "th"));
+  }, [envSuperEmails, remoteSuperAdminEmails]);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "adminUsers"), (snap) => {
@@ -53,6 +71,76 @@ export default function AdminPermissions() {
         return { ...a, allowedRooms: allowed };
       }),
     );
+  };
+
+  const persistSuperAdminEmails = async (emails: string[]) => {
+    const unique = [...new Set(emails.map(normalizeEmail).filter(Boolean))];
+    await setDoc(
+      doc(db, APP_CONFIG_COLLECTION, APP_ACCESS_DOC_ID),
+      { superAdminEmails: unique, updatedAt: serverTimestamp() },
+      { merge: true },
+    );
+  };
+
+  const handleAddSuperAdmin = async () => {
+    const email = normalizeEmail(newSuperEmail);
+    if (!email || !email.includes("@")) {
+      toast({ title: "กรุณากรอกอีเมล Super Admin ให้ถูกต้อง", variant: "destructive" });
+      return;
+    }
+    if (listedSuperEmails.includes(email)) {
+      toast({ title: "อีเมลนี้อยู่ในรายชื่อ Super Admin แล้ว" });
+      return;
+    }
+    setSavingSuper(true);
+    try {
+      const nextRemote = [...new Set([...remoteSuperAdminEmails.map(normalizeEmail), email])];
+      await persistSuperAdminEmails(nextRemote);
+      await setDoc(
+        doc(db, "adminUsers", adminDocId(email)),
+        {
+          email,
+          role: "super_admin" as AdminRole,
+          allowedRooms: allRoomValues(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+      toast({
+        title: "เพิ่ม Super Admin แล้ว",
+        description: `${email} สามารถเข้าแผงผู้ดูแลได้ทันที (ไม่ต้อง deploy ใหม่)`,
+      });
+      setNewSuperEmail("");
+    } catch (e) {
+      console.error(e);
+      toast({ title: "บันทึก Super Admin ไม่สำเร็จ", variant: "destructive" });
+    } finally {
+      setSavingSuper(false);
+    }
+  };
+
+  const handleRemoveSuperAdmin = async (email: string) => {
+    const key = normalizeEmail(email);
+    if (envSuperEmails.includes(key)) {
+      toast({
+        title: "ลบจากรายการนี้ไม่ได้",
+        description: "อีเมลนี้มาจาก VITE_SUPER_ADMIN_EMAILS ตอน build — แก้ที่ Secret/env แล้ว deploy ใหม่",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!confirm(`เอา ${email} ออกจาก Super Admin?`)) return;
+    try {
+      const nextRemote = remoteSuperAdminEmails
+        .map(normalizeEmail)
+        .filter((e) => e !== key);
+      await persistSuperAdminEmails(nextRemote);
+      await deleteDoc(doc(db, "adminUsers", adminDocId(key)));
+      toast({ title: "ลบ Super Admin แล้ว" });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "ลบไม่สำเร็จ", variant: "destructive" });
+    }
   };
 
   const handleAddAdmin = async () => {
@@ -165,6 +253,63 @@ export default function AdminPermissions() {
           Super Admin กำหนดว่า Admin แต่ละคนอนุมัติห้องใดได้ — Admin จะเห็นเฉพาะรายการรออนุมัติของห้องที่ได้รับอนุญาต
         </p>
       </div>
+
+      <Card className="border-primary/20">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Shield className="h-4 w-4 text-primary" />
+            Super Admin
+          </CardTitle>
+          <CardDescription>
+            เพิ่มอีเมลที่เข้าแผงผู้ดูthenได้เต็มสิทธิ์ — เก็บใน Firestore ใช้ได้ทันทีบน GitHub Pages
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              type="email"
+              placeholder="superadmin@example.com"
+              value={newSuperEmail}
+              onChange={(e) => setNewSuperEmail(e.target.value)}
+            />
+            <Button onClick={handleAddSuperAdmin} disabled={savingSuper} className="shrink-0 gap-2">
+              <UserPlus className="h-4 w-4" />
+              เพิ่ม Super Admin
+            </Button>
+          </div>
+          {listedSuperEmails.length > 0 ? (
+            <ul className="space-y-2">
+              {listedSuperEmails.map((email) => (
+                <li
+                  key={email}
+                  className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                >
+                  <span>{email}</span>
+                  <div className="flex items-center gap-2">
+                    {envSuperEmails.includes(email) ? (
+                      <Badge variant="outline" className="text-[10px]">
+                        จาก env
+                      </Badge>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-destructive"
+                        onClick={() => handleRemoveSuperAdmin(email)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">ยังไม่มี Super Admin ใน Firestore — ใช้ VITE_SUPER_ADMIN_EMAILS หรือเพิ่มด้านบน</p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

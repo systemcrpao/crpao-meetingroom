@@ -5,35 +5,64 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   type AdminProfile,
   type AdminUserDoc,
+  type AppAccessConfig,
+  APP_ACCESS_DOC_ID,
+  APP_CONFIG_COLLECTION,
   adminDocId,
   adminProfileFromDoc,
   bootstrapSuperAdminProfile,
-  isBootstrapSuperAdmin,
+  isSuperAdminEmail,
+  normalizeEmail,
 } from "@/lib/adminAccess";
 
 interface AdminProfileContextType {
   profile: AdminProfile | null;
   loading: boolean;
+  /** รายชื่อ Super Admin จาก Firestore (สำหรับหน้ากำหนดสิทธิ์) */
+  remoteSuperAdminEmails: string[];
 }
 
 const AdminProfileContext = createContext<AdminProfileContextType>({
   profile: null,
   loading: true,
+  remoteSuperAdminEmails: [],
 });
 
 export function AdminProfileProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const [firestoreProfile, setFirestoreProfile] = useState<AdminProfile | null>(null);
-  const [docLoading, setDocLoading] = useState(false);
+  const [userDocLoading, setUserDocLoading] = useState(false);
+  const [accessConfigLoading, setAccessConfigLoading] = useState(true);
+  const [remoteSuperAdminEmails, setRemoteSuperAdminEmails] = useState<string[]>([]);
+
+  useEffect(() => {
+    const ref = doc(db, APP_CONFIG_COLLECTION, APP_ACCESS_DOC_ID);
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        const data = (snap.exists() ? snap.data() : {}) as AppAccessConfig;
+        const list = Array.isArray(data.superAdminEmails)
+          ? data.superAdminEmails.map((e) => normalizeEmail(String(e))).filter(Boolean)
+          : [];
+        setRemoteSuperAdminEmails(list);
+        setAccessConfigLoading(false);
+      },
+      () => {
+        setRemoteSuperAdminEmails([]);
+        setAccessConfigLoading(false);
+      },
+    );
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     if (!user?.email) {
       setFirestoreProfile(null);
-      setDocLoading(false);
+      setUserDocLoading(false);
       return;
     }
 
-    setDocLoading(true);
+    setUserDocLoading(true);
     const ref = doc(db, "adminUsers", adminDocId(user.email));
     const unsub = onSnapshot(
       ref,
@@ -43,11 +72,11 @@ export function AdminProfileProvider({ children }: { children: React.ReactNode }
         } else {
           setFirestoreProfile(null);
         }
-        setDocLoading(false);
+        setUserDocLoading(false);
       },
       () => {
         setFirestoreProfile(null);
-        setDocLoading(false);
+        setUserDocLoading(false);
       },
     );
     return () => unsub();
@@ -56,14 +85,19 @@ export function AdminProfileProvider({ children }: { children: React.ReactNode }
   const profile = useMemo((): AdminProfile | null => {
     if (!user?.email) return null;
     if (firestoreProfile) return firestoreProfile;
-    if (isBootstrapSuperAdmin(user.email)) return bootstrapSuperAdminProfile(user.email);
+    if (isSuperAdminEmail(user.email, remoteSuperAdminEmails)) {
+      return bootstrapSuperAdminProfile(user.email);
+    }
     return null;
-  }, [user?.email, firestoreProfile]);
+  }, [user?.email, firestoreProfile, remoteSuperAdminEmails]);
 
-  const loading = authLoading || (!!user?.email && docLoading);
+  const loading =
+    authLoading ||
+    accessConfigLoading ||
+    (!!user?.email && userDocLoading);
 
   return (
-    <AdminProfileContext.Provider value={{ profile, loading }}>
+    <AdminProfileContext.Provider value={{ profile, loading, remoteSuperAdminEmails }}>
       {children}
     </AdminProfileContext.Provider>
   );

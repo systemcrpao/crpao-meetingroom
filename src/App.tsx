@@ -42,7 +42,9 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (!profile?.isAdmin) return <Navigate to="/" replace />;
+  if (!profile?.isAdmin) {
+    return <Navigate to="/login" replace state={{ adminDenied: true }} />;
+  }
   return <>{children}</>;
 }
 
@@ -57,6 +59,21 @@ function RequireSuperAdmin({ children }: { children: React.ReactNode }) {
   }
   if (!profile?.isSuperAdmin) return <Navigate to="/admin" replace />;
   return <>{children}</>;
+}
+
+function LoginRoute() {
+  const { user, loading } = useAuth();
+  const { profile, loading: profileLoading } = useAdminProfile();
+
+  if (loading || (user && profileLoading)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+  if (user && profile?.isAdmin) return <Navigate to="/admin" replace />;
+  return <LoginPage />;
 }
 
 function AppRoutes() {
@@ -79,12 +96,7 @@ function AppRoutes() {
           </UserLayout>
         }
       />
-      <Route
-        path="/login"
-        element={
-          user ? <Navigate to="/admin" replace /> : <LoginPage />
-        }
-      />
+      <Route path="/login" element={<LoginRoute />} />
       <Route
         path="/tracking"
         element={

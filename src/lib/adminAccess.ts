@@ -23,19 +23,46 @@ export function adminDocId(email: string): string {
   return email.trim().toLowerCase();
 }
 
-export function parseSuperAdminEmails(): Set<string> {
-  const raw = import.meta.env.VITE_SUPER_ADMIN_EMAILS ?? "";
-  return new Set(
-    raw
-      .split(",")
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean),
-  );
+/** แยกรายการอีเมลจาก env / Firestore (รองรับ comma, semicolon, ขึ้นบรรทัด) */
+export function parseEmailList(raw: string): string[] {
+  return raw
+    .split(/[,;\n]+/)
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
 }
 
-export function isBootstrapSuperAdmin(email: string | null | undefined): boolean {
+export function parseSuperAdminEmails(): Set<string> {
+  const raw = import.meta.env.VITE_SUPER_ADMIN_EMAILS ?? "";
+  return new Set(parseEmailList(raw));
+}
+
+export const APP_CONFIG_COLLECTION = "appConfig";
+export const APP_ACCESS_DOC_ID = "access";
+
+export interface AppAccessConfig {
+  /** Super Admin เพิ่มจากแผงผู้ดูthen — ไม่ต้อง rebuild เว็บ */
+  superAdminEmails?: string[];
+}
+
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+export function isSuperAdminEmail(
+  email: string | null | undefined,
+  remoteSuperAdminEmails: string[] = [],
+): boolean {
   if (!email) return false;
-  return parseSuperAdminEmails().has(email.trim().toLowerCase());
+  const key = normalizeEmail(email);
+  if (parseSuperAdminEmails().has(key)) return true;
+  return remoteSuperAdminEmails.some((e) => normalizeEmail(e) === key);
+}
+
+export function isBootstrapSuperAdmin(
+  email: string | null | undefined,
+  remoteSuperAdminEmails: string[] = [],
+): boolean {
+  return isSuperAdminEmail(email, remoteSuperAdminEmails);
 }
 
 export function allRoomValues(): string[] {

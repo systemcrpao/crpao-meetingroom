@@ -20,16 +20,24 @@ function parseChatId(raw: string): number | string {
   return raw;
 }
 
-function buildPlainMessage(formData: Record<string, unknown>): string {
+function escTelegramHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function buildTelegramMessage(formData: Record<string, unknown>): string {
+  const topic = escTelegramHtml(formData.topic ?? "-");
   return [
     "📢 มีการขอจองห้องประชุมใหม่!",
-    `🏢 ห้องประชุม: ${formData.room ?? "-"}`,
-    `📅 วันที่: ${formData.date ?? "-"}`,
-    `⏰ เวลา: ${formData.startTime ?? "-"} น. ถึง ${formData.endTime ?? "-"} น.`,
-    `👤 ผู้จอง: ${formData.bookerName ?? "-"} (${formData.department ?? "-"})`,
-    `📞 เบอร์ติดต่อ: ${formData.bookerPhone ?? "-"}`,
-    `📝 เรื่อง: ${formData.topic ?? "-"}`,
-    `🔍 Tracking ID: ${formData.trackingNumber ?? "-"}`,
+    `🏢 ห้องประชุม: ${escTelegramHtml(formData.room ?? "-")}`,
+    `📅 วันที่: ${escTelegramHtml(formData.date ?? "-")}`,
+    `⏰ เวลา: ${escTelegramHtml(formData.startTime ?? "-")} น. ถึง ${escTelegramHtml(formData.endTime ?? "-")} น.`,
+    `👤 ผู้จอง: ${escTelegramHtml(formData.bookerName ?? "-")} (${escTelegramHtml(formData.department ?? "-")})`,
+    `📞 เบอร์ติดต่อ: ${escTelegramHtml(formData.bookerPhone ?? "-")}`,
+    `📝 เรื่อง: <b>${topic}</b>`,
+    `🔍 Tracking ID: ${escTelegramHtml(formData.trackingNumber ?? "-")}`,
   ].join("\n");
 }
 
@@ -49,6 +57,7 @@ async function sendTelegramMessage(
     body: JSON.stringify({
       chat_id: chatId,
       text: text.slice(0, 4096),
+      parse_mode: "HTML",
     }),
   });
   const raw = await response.text();
@@ -75,7 +84,7 @@ export const sendTelegramNotification = async (
   }
 
   const chatId = parseChatId(TELEGRAM_CHAT_ID);
-  const message = buildPlainMessage(formData);
+  const message = buildTelegramMessage(formData);
 
   try {
     const sent = await sendTelegramMessage(TELEGRAM_BOT_TOKEN, chatId, message);

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,22 @@ import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
   const { login } = useAuth();
-  const navigate   = useNavigate();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw]     = useState(false);
   const [error, setError]       = useState("");
-  const [loading, setLoading]   = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const denied = (location.state as { adminDenied?: boolean } | null)?.adminDenied;
+    if (denied) {
+      setError("บัญชีนี้เข้าสู่ระบบได้ แต่ยังไม่มีสิทธิ์เข้าแผงผู้ดูแล — ติดต่อ Super Admin ให้เพิ่มอีเมลในเมนูกำหนดสิทธิ์");
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

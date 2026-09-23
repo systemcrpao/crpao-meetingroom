@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminProfile } from "@/contexts/AdminProfileContext";
 import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -30,6 +31,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </h1>
             </div>
             <div className="flex items-center gap-2">
+              <ThemeToggle />
               {user && (
                 <span className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
                   <User className="h-3.5 w-3.5" />

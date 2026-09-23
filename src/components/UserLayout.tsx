@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { LogIn, CalendarDays, LogOut, ShieldCheck, FileSearch } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function UserLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -27,6 +28,7 @@ export function UserLayout({ children }: { children: React.ReactNode }) {
         </Link>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           {user ? (
             <>
               <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">

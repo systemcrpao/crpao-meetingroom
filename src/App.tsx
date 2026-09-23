@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "next-themes";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AdminProfileProvider, useAdminProfile } from "@/contexts/AdminProfileContext";
@@ -178,10 +179,11 @@ function FirebaseConfigNotice() {
 }
 
 const App = () => (
-  <TooltipProvider>
-    <Toaster />
-    <Sonner />
-    <BrowserRouter basename={routerBasename}>
+  <ThemeProvider attribute="class" defaultTheme="light" enableSystem storageKey="meeting-room-theme">
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter basename={routerBasename}>
       {!import.meta.env.VITE_FIREBASE_API_KEY ? (
         <FirebaseConfigNotice />
       ) : (
@@ -191,8 +193,9 @@ const App = () => (
           </AdminProfileProvider>
         </AuthProvider>
       )}
-    </BrowserRouter>
-  </TooltipProvider>
+      </BrowserRouter>
+    </TooltipProvider>
+  </ThemeProvider>
 );
 
 export default App;

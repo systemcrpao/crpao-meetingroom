@@ -30,14 +30,14 @@ function escTelegramHtml(value: unknown): string {
 function buildTelegramMessage(formData: Record<string, unknown>): string {
   const topic = escTelegramHtml(formData.topic ?? "-");
   return [
-    "📢 มีการขอจองห้องประชุมใหม่!",
-    `🏢 ห้องประชุม: ${escTelegramHtml(formData.room ?? "-")}`,
-    `📅 วันที่: ${escTelegramHtml(formData.date ?? "-")}`,
-    `⏰ เวลา: ${escTelegramHtml(formData.startTime ?? "-")} น. ถึง ${escTelegramHtml(formData.endTime ?? "-")} น.`,
-    `👤 ผู้จอง: ${escTelegramHtml(formData.bookerName ?? "-")} (${escTelegramHtml(formData.department ?? "-")})`,
-    `📞 เบอร์ติดต่อ: ${escTelegramHtml(formData.bookerPhone ?? "-")}`,
-    `📝 เรื่อง: <b>${topic}</b>`,
-    `🔍 Tracking ID: ${escTelegramHtml(formData.trackingNumber ?? "-")}`,
+    "📢 <b>มีการขอจองห้องประชุมใหม่!</b>",
+    `🏢 <b>ห้องประชุม:</b> ${escTelegramHtml(formData.room ?? "-")}`,
+    `📅 <b>วันที่:</b> ${escTelegramHtml(formData.date ?? "-")}`,
+    `⏰ <b>เวลา:</b> ${escTelegramHtml(formData.startTime ?? "-")} น. ถึง ${escTelegramHtml(formData.endTime ?? "-")} น.`,
+    `👤 <b>ผู้จอง:</b> ${escTelegramHtml(formData.bookerName ?? "-")} (${escTelegramHtml(formData.department ?? "-")})`,
+    `📞 <b>เบอร์ติดต่อ:</b> ${escTelegramHtml(formData.bookerPhone ?? "-")}`,
+    `📝 <b>เรื่อง:</b> ${topic}`,
+    `🔍 <b>Tracking ID:</b> ${escTelegramHtml(formData.trackingNumber ?? "-")}`,
   ].join("\n");
 }
 

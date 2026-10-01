@@ -1,25 +1,20 @@
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  SURVEY_SECTIONS,
+  type BookingSurveyScores,
+  type ScoreKey,
+} from "@/lib/bookingFeedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 
-export type BookingSurveyScores = {
-  ease: number;
-  clarity: number;
-  overall: number;
-};
-
-const SURVEY_QUESTIONS: { key: keyof BookingSurveyScores; label: string }[] = [
-  { key: "ease", label: "ความสะดวกในการใช้งานระบบจองห้องประชุม" },
-  { key: "clarity", label: "ความชัดเจนของขั้นตอนการกรอกแบบฟอร์ม" },
-  { key: "overall", label: "ความพึงพอใจโดยรวมต่อการจองครั้งนี้" },
-];
+export type { BookingSurveyScores };
 
 type Props = {
   phase: "loading" | "survey" | null;
   scores: BookingSurveyScores;
-  onScoreChange: (key: keyof BookingSurveyScores, value: number) => void;
+  onScoreChange: (key: ScoreKey, value: number) => void;
   suggestion: string;
   onSuggestionChange: (value: string) => void;
   onSubmitSurvey: () => void;
@@ -28,23 +23,28 @@ type Props = {
 };
 
 function ScoreRow({
+  code,
   label,
   value,
   onChange,
 }: {
+  code: string;
   label: string;
   value: number;
   onChange: (n: number) => void;
 }) {
   return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium leading-snug">{label}</p>
-      <div className="flex gap-1.5">
+    <div className="space-y-2 pl-1">
+      <p className="text-sm font-medium leading-snug">
+        <span className="text-muted-foreground font-semibold tabular-nums">{code}</span>{" "}
+        {label}
+      </p>
+      <div className="flex gap-1.5 flex-wrap">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}
             type="button"
-            aria-label={`${n} คะแนน`}
+            aria-label={`${code} ${n} คะแนน`}
             onClick={() => onChange(n)}
             className={cn(
               "h-9 w-9 rounded-md border text-sm font-semibold transition-colors",
@@ -96,21 +96,31 @@ export function BookingSubmitOverlay({
       )}
 
       {phase === "survey" && (
-        <Card className="w-full max-w-md shadow-xl border animate-in slide-in-from-bottom-4 fade-in duration-300 max-h-[90vh] overflow-y-auto">
+        <Card className="w-full max-w-lg shadow-xl border animate-in slide-in-from-bottom-4 fade-in duration-300 max-h-[90vh] overflow-y-auto">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">แบบประเมินความพึงพอใจ</CardTitle>
             <CardDescription className="text-sm leading-relaxed">
-              การจองของท่านบันทึกเรียบร้อยแล้ว โปรดให้คะแนน 1–5 (น้อยที่สุดถึงมากที่สุด) เพื่อพัฒนาระบบต่อไป
+              การจองของท่านบันทึกเรียบร้อยแล้ว โปรดให้คะแนน 1–5 (น้อยที่สุดถึงมากที่สุด) ตามข้อด้านล่าง
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-5 pb-6">
-            {SURVEY_QUESTIONS.map((q) => (
-              <ScoreRow
-                key={q.key}
-                label={q.label}
-                value={scores[q.key]}
-                onChange={(n) => onScoreChange(q.key, n)}
-              />
+          <CardContent className="space-y-6 pb-6">
+            {SURVEY_SECTIONS.map((section) => (
+              <div key={section.title} className="space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-primary border-b pb-1">
+                  {section.title}
+                </p>
+                <div className="space-y-4">
+                  {section.items.map((item) => (
+                    <ScoreRow
+                      key={item.key}
+                      code={item.code}
+                      label={item.label}
+                      value={scores[item.key]}
+                      onChange={(n) => onScoreChange(item.key, n)}
+                    />
+                  ))}
+                </div>
+              </div>
             ))}
 
             <div className="space-y-2">

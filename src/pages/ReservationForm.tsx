@@ -2,10 +2,13 @@ import { useState, useMemo, useEffect } from "react";
 import { format, startOfDay, eachDayOfInterval } from "date-fns";
 import { th } from "date-fns/locale";
 import { CalendarIcon, Printer, Building2, BookOpen, Clock3, DoorOpen, MonitorSpeaker, UserCircle2, Users, CheckCircle2, Copy, FileSearch, ImageDown } from "lucide-react";
+import { BookingSubmitOverlay } from "@/components/booking/BookingSubmitOverlay";
 import {
-  BookingSubmitOverlay,
+  EMPTY_SURVEY_SCORES,
+  SCORE_KEYS,
   type BookingSurveyScores,
-} from "@/components/booking/BookingSubmitOverlay";
+  surveyScoresToFirestore,
+} from "@/lib/bookingFeedback";
 import { downloadBookingCardPng } from "@/lib/bookingCardImage";
 import { cn } from "@/lib/utils";
 import { DEPARTMENTS, DEPARTMENT_OTHER, EQUIPMENT_OPTIONS, TIME_SLOTS } from "@/lib/mockData";
@@ -100,11 +103,7 @@ export default function ReservationForm() {
   const [bookerPhone, setBookerPhone] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [postSubmitPhase, setPostSubmitPhase] = useState<"loading" | "survey" | null>(null);
-  const [surveyScores, setSurveyScores] = useState<BookingSurveyScores>({
-    ease: 0,
-    clarity: 0,
-    overall: 0,
-  });
+  const [surveyScores, setSurveyScores] = useState<BookingSurveyScores>({ ...EMPTY_SURVEY_SCORES });
   const [surveySuggestion, setSurveySuggestion] = useState("");
   const [feedbackSaving, setFeedbackSaving] = useState(false);
 
@@ -349,7 +348,7 @@ export default function ReservationForm() {
         await new Promise((resolve) => window.setTimeout(resolve, waitMs));
       }
 
-      setSurveyScores({ ease: 0, clarity: 0, overall: 0 });
+      setSurveyScores({ ...EMPTY_SURVEY_SCORES });
       setSurveySuggestion("");
       setPostSubmitPhase("survey");
     } catch (error) {
@@ -367,17 +366,14 @@ export default function ReservationForm() {
 
   const finishBookingWithSurvey = async (saveFeedback: boolean) => {
     if (saveFeedback && savedTrackingNumber) {
-      const hasAnyScore =
-        surveyScores.ease > 0 || surveyScores.clarity > 0 || surveyScores.overall > 0;
+      const hasAnyScore = SCORE_KEYS.some((k) => surveyScores[k] >= 1);
       const hasSuggestion = surveySuggestion.trim().length > 0;
       if (hasAnyScore || hasSuggestion) {
         setFeedbackSaving(true);
         try {
           await addDoc(collection(db, "bookingFeedback"), {
             trackingNumber: savedTrackingNumber,
-            easeOfUse: surveyScores.ease || null,
-            formClarity: surveyScores.clarity || null,
-            overallSatisfaction: surveyScores.overall || null,
+            ...surveyScoresToFirestore(surveyScores),
             suggestion: surveySuggestion.trim() || null,
             createdAt: serverTimestamp(),
           });

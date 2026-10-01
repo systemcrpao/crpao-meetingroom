@@ -1,22 +1,133 @@
 import { format } from "date-fns";
 
+/** คีย์คะแนนใน Firestore / แบบประเมิน */
+export type ScoreKey =
+  | "bookingStepsClear"
+  | "bookingAccessSpeed"
+  | "systemEaseOfUse"
+  | "editCancelEase"
+  | "multiDeviceSupport";
+
+export type BookingSurveyScores = Record<ScoreKey, number>;
+
+export const EMPTY_SURVEY_SCORES: BookingSurveyScores = {
+  bookingStepsClear: 0,
+  bookingAccessSpeed: 0,
+  systemEaseOfUse: 0,
+  editCancelEase: 0,
+  multiDeviceSupport: 0,
+};
+
+export const SCORE_KEYS: ScoreKey[] = [
+  "bookingStepsClear",
+  "bookingAccessSpeed",
+  "systemEaseOfUse",
+  "editCancelEase",
+  "multiDeviceSupport",
+];
+
+export const SURVEY_SECTIONS: {
+  title: string;
+  items: { key: ScoreKey; code: string; label: string }[];
+}[] = [
+  {
+    title: "ด้านประสิทธิภาพและการใช้งาน",
+    items: [
+      {
+        key: "bookingStepsClear",
+        code: "1.1",
+        label: "ขั้นตอนการจองห้องประชุมมีความชัดเจน เข้าใจง่าย และไม่ซับซ้อน",
+      },
+      {
+        key: "bookingAccessSpeed",
+        code: "1.2",
+        label: "ความสะดวกรวดเร็วในการเข้าถึงและทำรายการจอง",
+      },
+    ],
+  },
+  {
+    title: "ด้านฟังก์ชันการทำงานของระบบ",
+    items: [
+      {
+        key: "systemEaseOfUse",
+        code: "2.1",
+        label: "ความสะดวกในการใช้งานระบบ",
+      },
+      {
+        key: "editCancelEase",
+        code: "2.2",
+        label: "ความสะดวกในการแก้ไข เปลี่ยนแปลง หรือยกเลิกการจอง",
+      },
+    ],
+  },
+  {
+    title: "ด้านการออกแบบและการแสดงผล",
+    items: [
+      {
+        key: "multiDeviceSupport",
+        code: "3.1",
+        label:
+          "การรองรับการใช้งานผ่านอุปกรณ์ที่หลากหลาย (คอมพิวเตอร์, แท็บเล็ต, โทรศัพท์มือถือ)",
+      },
+    ],
+  },
+];
+
+export const SCORE_LABELS: Record<ScoreKey, string> = Object.fromEntries(
+  SURVEY_SECTIONS.flatMap((s) => s.items.map((i) => [i.key, `${i.code} ${i.label}`])),
+) as Record<ScoreKey, string>;
+
+export type DimensionKey = "efficiency" | "functionality" | "design";
+
+export const DIMENSION_TITLES: Record<DimensionKey, string> = {
+  efficiency: "ด้านประสิทธิภาพและการใช้งาน",
+  functionality: "ด้านฟังก์ชันการทำงานของระบบ",
+  design: "ด้านการออกแบบและการแสดงผล",
+};
+
+const DIMENSION_KEYS: Record<DimensionKey, ScoreKey[]> = {
+  efficiency: ["bookingStepsClear", "bookingAccessSpeed"],
+  functionality: ["systemEaseOfUse", "editCancelEase"],
+  design: ["multiDeviceSupport"],
+};
+
+/** ข้อมูลเก่า (3 ข้อ) — ใช้แสดงในรายงานถ้ายังไม่มีฟิลด์ใหม่ */
 export interface BookingFeedbackRow {
   id: string;
   trackingNumber?: string;
+  suggestion?: string | null;
+  createdAt?: { toDate?: () => Date } | string | null;
+  bookingStepsClear?: number | null;
+  bookingAccessSpeed?: number | null;
+  systemEaseOfUse?: number | null;
+  editCancelEase?: number | null;
+  multiDeviceSupport?: number | null;
   easeOfUse?: number | null;
   formClarity?: number | null;
   overallSatisfaction?: number | null;
-  suggestion?: string | null;
-  createdAt?: { toDate?: () => Date } | string | null;
 }
 
-export type ScoreKey = "easeOfUse" | "formClarity" | "overallSatisfaction";
+function legacyScore(row: BookingFeedbackRow, key: ScoreKey): number | undefined {
+  const direct = row[key];
+  if (typeof direct === "number" && direct >= 1 && direct <= 5) return direct;
 
-export const SCORE_LABELS: Record<ScoreKey, string> = {
-  easeOfUse: "ความสะดวกในการใช้งานระบบ",
-  formClarity: "ความชัดเจนของขั้นตอนการกรอกแบบฟอร์ม",
-  overallSatisfaction: "ความพึงพอใจโดยรวม",
-};
+  switch (key) {
+    case "bookingStepsClear":
+      if (typeof row.formClarity === "number") return row.formClarity;
+      break;
+    case "systemEaseOfUse":
+      if (typeof row.easeOfUse === "number") return row.easeOfUse;
+      break;
+    case "bookingAccessSpeed":
+    case "editCancelEase":
+    case "multiDeviceSupport":
+      if (typeof row.overallSatisfaction === "number") return row.overallSatisfaction;
+      break;
+    default:
+      break;
+  }
+  return undefined;
+}
 
 export function parseFeedbackCreatedAt(row: BookingFeedbackRow): Date | null {
   const ts = row.createdAt;
@@ -49,7 +160,7 @@ export function filterFeedbackByPeriod(
 
 function validScores(rows: BookingFeedbackRow[], key: ScoreKey): number[] {
   return rows
-    .map((r) => r[key])
+    .map((r) => legacyScore(r, key))
     .filter((v): v is number => typeof v === "number" && v >= 1 && v <= 5);
 }
 
@@ -69,25 +180,41 @@ export function scoreDistribution(values: number[]): Record<1 | 2 | 3 | 4 | 5, n
 export interface SatisfactionSummary {
   totalResponses: number;
   scoredResponses: number;
+  overallAverage: number;
+  dimensionAverages: Record<DimensionKey, number>;
   averages: Record<ScoreKey, number>;
   distributions: Record<ScoreKey, Record<1 | 2 | 3 | 4 | 5, number>>;
   suggestions: { trackingNumber: string; text: string; at: string }[];
 }
 
 export function computeSatisfactionSummary(rows: BookingFeedbackRow[]): SatisfactionSummary {
-  const easeVals = validScores(rows, "easeOfUse");
-  const clarityVals = validScores(rows, "formClarity");
-  const overallVals = validScores(rows, "overallSatisfaction");
+  const averages = {} as Record<ScoreKey, number>;
+  const distributions = {} as Record<ScoreKey, Record<1 | 2 | 3 | 4 | 5, number>>;
+
+  for (const key of SCORE_KEYS) {
+    const vals = validScores(rows, key);
+    averages[key] = averageScore(vals);
+    distributions[key] = scoreDistribution(vals);
+  }
+
+  const dimensionAverages = {} as Record<DimensionKey, number>;
+  for (const dim of Object.keys(DIMENSION_KEYS) as DimensionKey[]) {
+    const avgs = DIMENSION_KEYS[dim]
+      .map((k) => averages[k])
+      .filter((a) => a > 0);
+    dimensionAverages[dim] = averageScore(avgs);
+  }
+
+  const allAvgs = SCORE_KEYS.map((k) => averages[k]).filter((a) => a > 0);
+  const overallAverage = averageScore(allAvgs);
 
   const scoredIds = new Set<string>();
   for (const row of rows) {
-    if (
-      (typeof row.easeOfUse === "number" && row.easeOfUse >= 1) ||
-      (typeof row.formClarity === "number" && row.formClarity >= 1) ||
-      (typeof row.overallSatisfaction === "number" && row.overallSatisfaction >= 1)
-    ) {
-      scoredIds.add(row.id);
-    }
+    const hasScore = SCORE_KEYS.some((k) => {
+      const v = legacyScore(row, k);
+      return typeof v === "number" && v >= 1;
+    });
+    if (hasScore) scoredIds.add(row.id);
   }
 
   const suggestions = rows
@@ -104,16 +231,10 @@ export function computeSatisfactionSummary(rows: BookingFeedbackRow[]): Satisfac
   return {
     totalResponses: rows.length,
     scoredResponses: scoredIds.size,
-    averages: {
-      easeOfUse: averageScore(easeVals),
-      formClarity: averageScore(clarityVals),
-      overallSatisfaction: averageScore(overallVals),
-    },
-    distributions: {
-      easeOfUse: scoreDistribution(easeVals),
-      formClarity: scoreDistribution(clarityVals),
-      overallSatisfaction: scoreDistribution(overallVals),
-    },
+    overallAverage,
+    dimensionAverages,
+    averages,
+    distributions,
     suggestions,
   };
 }
@@ -130,4 +251,12 @@ export function satisfactionLevelLabel(avg: number): string {
   if (avg >= 3) return "ปานกลาง";
   if (avg >= 2) return "ควรปรับปรุง";
   return "ต้องปรับปรุงเร่งด่วน";
+}
+
+export function surveyScoresToFirestore(scores: BookingSurveyScores): Record<string, number | null> {
+  const out: Record<string, number | null> = {};
+  for (const key of SCORE_KEYS) {
+    out[key] = scores[key] >= 1 && scores[key] <= 5 ? scores[key] : null;
+  }
+  return out;
 }

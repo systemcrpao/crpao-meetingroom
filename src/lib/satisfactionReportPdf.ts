@@ -1,5 +1,8 @@
 import {
+  DIMENSION_TITLES,
   SCORE_LABELS,
+  SURVEY_SECTIONS,
+  type DimensionKey,
   type SatisfactionSummary,
   type ScoreKey,
   formatAvgScore,
@@ -17,10 +20,7 @@ function esc(s: unknown): string {
 function distTable(key: ScoreKey, summary: SatisfactionSummary): string {
   const dist = summary.distributions[key];
   const rows = ([5, 4, 3, 2, 1] as const)
-    .map(
-      (n) =>
-        `<tr><td class="c">${n}</td><td class="c">${dist[n]}</td></tr>`,
-    )
+    .map((n) => `<tr><td class="c">${n}</td><td class="c">${dist[n]}</td></tr>`)
     .join("");
   return `
     <p class="sub-h">${esc(SCORE_LABELS[key])}</p>
@@ -36,22 +36,32 @@ export function buildSatisfactionReportPrintHtml(
   summary: SatisfactionSummary,
 ): string {
   const assetBase = import.meta.env.BASE_URL;
-  const keys: ScoreKey[] = ["easeOfUse", "formClarity", "overallSatisfaction"];
 
-  const avgRows = keys
-    .map((key) => {
-      const avg = summary.averages[key];
-      return `<tr>
-        <td>${esc(SCORE_LABELS[key])}</td>
-        <td class="c">${formatAvgScore(avg)}</td>
-        <td class="c">${esc(satisfactionLevelLabel(avg))}</td>
-      </tr>`;
-    })
+  const dimRows = (Object.keys(DIMENSION_TITLES) as DimensionKey[])
+    .map(
+      (dim) => `<tr>
+        <td>${esc(DIMENSION_TITLES[dim])}</td>
+        <td class="c">${formatAvgScore(summary.dimensionAverages[dim])}</td>
+        <td class="c">${esc(satisfactionLevelLabel(summary.dimensionAverages[dim]))}</td>
+      </tr>`,
+    )
     .join("");
+
+  const itemRows = SURVEY_SECTIONS.flatMap((section) =>
+    section.items.map((item) => {
+      const avg = summary.averages[item.key];
+      return `<tr>
+        <td>${esc(section.title)}</td>
+        <td>${esc(item.code)}</td>
+        <td>${esc(item.label)}</td>
+        <td class="c">${formatAvgScore(avg)}</td>
+      </tr>`;
+    }),
+  ).join("");
 
   const suggestionBlock =
     summary.suggestions.length === 0
-      ? "<p class=\"muted\">ไม่มีข้อเสนอแนะในช่วงเวลาที่เลือก</p>"
+      ? '<p class="muted">ไม่มีข้อเสนอแนะในช่วงเวลาที่เลือก</p>'
       : `<ol class="suggest">${summary.suggestions
           .slice(0, 30)
           .map(
@@ -94,7 +104,7 @@ export function buildSatisfactionReportPrintHtml(
     th { background: #f0f4f8; font-weight: 700; }
     td.c, th.c { text-align: center; }
     .dist { max-width: 280px; }
-    .sub-h { font-weight: 700; margin: 12px 0 4px; }
+    .sub-h { font-weight: 700; margin: 12px 0 4px; font-size: 10.5pt; }
     .summary-box {
       border: 1px solid #333;
       padding: 10px 12px;
@@ -119,23 +129,31 @@ export function buildSatisfactionReportPrintHtml(
     <p><strong>จำนวนการตอบแบบประเมิน:</strong> ${summary.totalResponses} รายการ
     (มีคะแนน ${summary.scoredResponses} รายการ)</p>
     <p><strong>สรุปผู้บริหาร:</strong>
-    คะแนนเฉลี่ยด้านความพึงพอใจโดยรวมอยู่ที่ ${formatAvgScore(summary.averages.overallSatisfaction)} จาก 5.00
-    (${esc(satisfactionLevelLabel(summary.averages.overallSatisfaction))})
+    คะแนนเฉลี่ยรวมทุกข้อ ${formatAvgScore(summary.overallAverage)} จาก 5.00
+    (${esc(satisfactionLevelLabel(summary.overallAverage))})
     — ใช้ประกอบการพิจารณาปรับปรุงระบบและการให้บริการต่อไป</p>
   </div>
 
-  <h2>1. คะแนนเฉลี่ยรายด้าน (มาตรวัด 1–5)</h2>
+  <h2>1. คะแนนเฉลี่ยรายด้าน</h2>
   <table>
     <thead>
       <tr><th>ด้านการประเมิน</th><th class="c">คะแนนเฉลี่ย</th><th class="c">ระดับ</th></tr>
     </thead>
-    <tbody>${avgRows}</tbody>
+    <tbody>${dimRows}</tbody>
   </table>
 
-  <h2>2. การกระจายคะแนน (จำนวนครั้ง)</h2>
-  ${keys.map((k) => distTable(k, summary)).join("")}
+  <h2>2. คะแนนเฉลี่ยรายข้อ</h2>
+  <table>
+    <thead>
+      <tr><th>ด้าน</th><th class="c">ข้อ</th><th>รายการประเมิน</th><th class="c">เฉลี่ย</th></tr>
+    </thead>
+    <tbody>${itemRows}</tbody>
+  </table>
 
-  <h2>3. ข้อเสนอแนะจากผู้ใช้งาน</h2>
+  <h2>3. การกระจายคะแนน (จำนวนครั้ง)</h2>
+  ${SURVEY_SECTIONS.flatMap((s) => s.items.map((i) => distTable(i.key, summary))).join("")}
+
+  <h2>4. ข้อเสนอแนะจากผู้ใช้งาน</h2>
   ${suggestionBlock}
 
   <div class="sign">

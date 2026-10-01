@@ -5,9 +5,10 @@ import { buddhistYearSelectLabel } from "@/lib/thaiDate";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
 import {
-  SCORE_LABELS,
+  DIMENSION_TITLES,
+  SURVEY_SECTIONS,
   type BookingFeedbackRow,
-  type ScoreKey,
+  type DimensionKey,
   computeSatisfactionSummary,
   filterFeedbackByPeriod,
   formatAvgScore,
@@ -31,8 +32,6 @@ const THAI_MONTHS = [
   "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
   "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม",
 ];
-
-const SCORE_KEYS: ScoreKey[] = ["easeOfUse", "formClarity", "overallSatisfaction"];
 
 export default function AdminSatisfactionReport() {
   const [rows, setRows] = useState<BookingFeedbackRow[]>([]);
@@ -63,17 +62,13 @@ export default function AdminSatisfactionReport() {
       ? `ประจำเดือน${THAI_MONTHS[selectedMonth]} พ.ศ. ${beYear}`
       : `ประจำปี พ.ศ. ${beYear}`;
 
-  const handleExportPdf = () => {
-    openSatisfactionReportPdf(periodTitle, summary);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">สรุปความพึงพอใจ</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            รายงานจากแบบประเมินหลังการจอง — สำหรับ Super Admin เสนอผู้บริหาร
+            แบบประเมิน 5 ข้อ 3 ด้าน — สำหรับ Super Admin เสนอผู้บริหาร
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -121,7 +116,7 @@ export default function AdminSatisfactionReport() {
               </SelectContent>
             </Select>
           )}
-          <Button size="sm" className="h-8 gap-1.5" onClick={handleExportPdf}>
+          <Button size="sm" className="h-8 gap-1.5" onClick={() => openSatisfactionReportPdf(periodTitle, summary)}>
             <FileDown className="h-3.5 w-3.5" />
             ส่งออก PDF
           </Button>
@@ -145,12 +140,12 @@ export default function AdminSatisfactionReport() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1.5">
-              <Star className="h-3.5 w-3.5" /> ความพึงพอใจโดยรวม (เฉลี่ย)
+              <Star className="h-3.5 w-3.5" /> คะแนนเฉลี่ยรวม (ทุกข้อ)
             </CardDescription>
-            <CardTitle className="text-3xl">{formatAvgScore(summary.averages.overallSatisfaction)}</CardTitle>
+            <CardTitle className="text-3xl">{formatAvgScore(summary.overallAverage)}</CardTitle>
           </CardHeader>
           <CardContent className="text-xs text-muted-foreground">
-            {satisfactionLevelLabel(summary.averages.overallSatisfaction)} · จาก 5.00
+            {satisfactionLevelLabel(summary.overallAverage)} · จาก 5.00
           </CardContent>
         </Card>
         <Card>
@@ -164,63 +159,91 @@ export default function AdminSatisfactionReport() {
         </Card>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {(Object.keys(DIMENSION_TITLES) as DimensionKey[]).map((dim) => (
+          <Card key={dim}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium leading-snug">{DIMENSION_TITLES[dim]}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{formatAvgScore(summary.dimensionAverages[dim])}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {satisfactionLevelLabel(summary.dimensionAverages[dim])}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">คะแนนเฉลี่ยรายด้าน</CardTitle>
+          <CardTitle className="text-lg">คะแนนเฉลี่ยรายข้อ</CardTitle>
           <CardDescription>มาตรวัด 1 = น้อยที่สุด · 5 = มากที่สุด</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ด้าน</TableHead>
-                <TableHead className="text-center w-28">เฉลี่ย</TableHead>
-                <TableHead className="text-center w-36">ระดับ</TableHead>
+                <TableHead className="w-[28%]">ด้าน</TableHead>
+                <TableHead className="w-12 text-center">ข้อ</TableHead>
+                <TableHead>รายการประเมิน</TableHead>
+                <TableHead className="text-center w-24">เฉลี่ย</TableHead>
+                <TableHead className="text-center w-28">ระดับ</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {SCORE_KEYS.map((key) => (
-                <TableRow key={key}>
-                  <TableCell className="text-sm">{SCORE_LABELS[key]}</TableCell>
-                  <TableCell className="text-center font-semibold">
-                    {formatAvgScore(summary.averages[key])}
-                  </TableCell>
-                  <TableCell className="text-center text-sm text-muted-foreground">
-                    {satisfactionLevelLabel(summary.averages[key])}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {SURVEY_SECTIONS.flatMap((section) =>
+                section.items.map((item) => {
+                  const avg = summary.averages[item.key];
+                  return (
+                    <TableRow key={item.key}>
+                      <TableCell className="text-xs text-muted-foreground">{section.title}</TableCell>
+                      <TableCell className="text-center text-xs font-semibold tabular-nums">{item.code}</TableCell>
+                      <TableCell className="text-sm">{item.label}</TableCell>
+                      <TableCell className="text-center font-semibold">{formatAvgScore(avg)}</TableCell>
+                      <TableCell className="text-center text-xs text-muted-foreground">
+                        {satisfactionLevelLabel(avg)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                }),
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {SCORE_KEYS.map((key) => (
-          <Card key={key}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium leading-snug">{SCORE_LABELS[key]}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {([5, 4, 3, 2, 1] as const).map((n) => {
-                const count = summary.distributions[key][n];
-                const max = Math.max(1, ...Object.values(summary.distributions[key]));
-                return (
-                  <div key={n} className="flex items-center gap-2 text-xs">
-                    <span className="w-4 font-semibold">{n}</span>
-                    <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={cn("h-full rounded-full bg-primary/80")}
-                        style={{ width: `${(count / max) * 100}%` }}
-                      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        {SURVEY_SECTIONS.flatMap((section) =>
+          section.items.map((item) => (
+            <Card key={item.key}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">{section.title}</CardTitle>
+                <CardDescription className="text-sm font-medium text-foreground leading-snug">
+                  <span className="font-semibold tabular-nums">{item.code}</span> {item.label}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {([5, 4, 3, 2, 1] as const).map((n) => {
+                  const count = summary.distributions[item.key][n];
+                  const max = Math.max(1, ...Object.values(summary.distributions[item.key]));
+                  return (
+                    <div key={n} className="flex items-center gap-2 text-xs">
+                      <span className="w-4 font-semibold">{n}</span>
+                      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={cn("h-full rounded-full bg-primary/80")}
+                          style={{ width: `${(count / max) * 100}%` }}
+                        />
+                      </div>
+                      <span className="w-6 text-right tabular-nums">{count}</span>
                     </div>
-                    <span className="w-6 text-right tabular-nums">{count}</span>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-        ))}
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )),
+        )}
       </div>
 
       <Card>

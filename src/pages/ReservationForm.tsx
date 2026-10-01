@@ -2,6 +2,10 @@ import { useState, useMemo, useEffect } from "react";
 import { format, startOfDay, eachDayOfInterval } from "date-fns";
 import { th } from "date-fns/locale";
 import { CalendarIcon, Printer, Building2, BookOpen, Clock3, DoorOpen, MonitorSpeaker, UserCircle2, Users, CheckCircle2, Copy, FileSearch, ImageDown } from "lucide-react";
+import {
+  BookingSubmitOverlay,
+  type BookingSurveyScores,
+} from "@/components/booking/BookingSubmitOverlay";
 import { downloadBookingCardPng } from "@/lib/bookingCardImage";
 import { cn } from "@/lib/utils";
 import { DEPARTMENTS, DEPARTMENT_OTHER, EQUIPMENT_OPTIONS, TIME_SLOTS } from "@/lib/mockData";
@@ -41,6 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const ROOM_THAMMARAP_ARUN = "ธรรมรับอรุณ";
+const BOOKING_LOADING_MIN_MS = 900;
 
 // Generate unique 5-character tracking number (uppercase + digits, no ambiguous chars)
 const TRACKING_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid confusion
@@ -94,6 +99,14 @@ export default function ReservationForm() {
   const [bookerPosition, setBookerPosition] = useState("");
   const [bookerPhone, setBookerPhone] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [postSubmitPhase, setPostSubmitPhase] = useState<"loading" | "survey" | null>(null);
+  const [surveyScores, setSurveyScores] = useState<BookingSurveyScores>({
+    ease: 0,
+    clarity: 0,
+    overall: 0,
+  });
+  const [surveySuggestion, setSurveySuggestion] = useState("");
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
 
   // Success state
   const [submitted, setSubmitted] = useState(false);
@@ -249,6 +262,8 @@ export default function ReservationForm() {
     }
 
     setIsSubmitting(true);
+    setPostSubmitPhase("loading");
+    const loadingStartedAt = Date.now();
     try {
       // Check overlap for ALL dates
       for (const bookDate of datesToBook) {
@@ -275,6 +290,7 @@ export default function ReservationForm() {
             variant: "destructive",
           });
           setIsSubmitting(false);
+          setPostSubmitPhase(null);
           return;
         }
       }
@@ -308,13 +324,6 @@ export default function ReservationForm() {
       };
       const telegramResult = await sendTelegramNotification(telegramData);
 
-      toast({
-        title: "บันทึกการจองสำเร็จ!",
-        description: datesToBook.length > 1
-          ? `จองห้อง ${room} จำนวน ${datesToBook.length} วัน หมายเลขติดตาม: ${trackingNumber}`
-          : `จองห้อง ${room} หมายเลขติดตาม: ${trackingNumber}`,
-      });
-
       if (!telegramResult.ok) {
         toast({
           title: "แจ้งเตือน Telegram ไม่สำเร็จ",
@@ -334,9 +343,18 @@ export default function ReservationForm() {
         dateEnd: datesToBook.length > 1 ? allDateStrs[allDateStrs.length - 1] : undefined,
         allDates: allDateStrs,
       });
-      setSubmitted(true);
+
+      const waitMs = Math.max(0, BOOKING_LOADING_MIN_MS - (Date.now() - loadingStartedAt));
+      if (waitMs > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, waitMs));
+      }
+
+      setSurveyScores({ ease: 0, clarity: 0, overall: 0 });
+      setSurveySuggestion("");
+      setPostSubmitPhase("survey");
     } catch (error) {
       console.error("Error saving reservation:", error);
+      setPostSubmitPhase(null);
       toast({
         title: "เกิดข้อผิดพลาด",
         description: "ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่อีกครั้ง",
@@ -345,6 +363,40 @@ export default function ReservationForm() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const finishBookingWithSurvey = async (saveFeedback: boolean) => {
+    if (saveFeedback && savedTrackingNumber) {
+      const hasAnyScore =
+        surveyScores.ease > 0 || surveyScores.clarity > 0 || surveyScores.overall > 0;
+      const hasSuggestion = surveySuggestion.trim().length > 0;
+      if (hasAnyScore || hasSuggestion) {
+        setFeedbackSaving(true);
+        try {
+          await addDoc(collection(db, "bookingFeedback"), {
+            trackingNumber: savedTrackingNumber,
+            easeOfUse: surveyScores.ease || null,
+            formClarity: surveyScores.clarity || null,
+            overallSatisfaction: surveyScores.overall || null,
+            suggestion: surveySuggestion.trim() || null,
+            createdAt: serverTimestamp(),
+          });
+        } catch (err) {
+          console.error("bookingFeedback save failed:", err);
+        } finally {
+          setFeedbackSaving(false);
+        }
+      }
+    }
+
+    setPostSubmitPhase(null);
+    setSubmitted(true);
+    toast({
+      title: "บันทึกการจองสำเร็จ!",
+      description: savedTrackingNumber
+        ? `หมายเลขติดตาม: ${savedTrackingNumber}`
+        : "กรุณาบันทึกหมายเลขติดตามเพื่อตรวจสอบสถานะ",
+    });
   };
 
   const handleCopy = () => {
@@ -378,6 +430,7 @@ export default function ReservationForm() {
 
   const handleNewBooking = () => {
     setSubmitted(false);
+    setPostSubmitPhase(null);
     setSavedTrackingNumber("");
     setSavedFormData(null);
     setDepartment("");
@@ -815,6 +868,17 @@ export default function ReservationForm() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BookingSubmitOverlay
+        phase={postSubmitPhase}
+        scores={surveyScores}
+        onScoreChange={(key, value) => setSurveyScores((prev) => ({ ...prev, [key]: value }))}
+        suggestion={surveySuggestion}
+        onSuggestionChange={setSurveySuggestion}
+        onSubmitSurvey={() => finishBookingWithSurvey(true)}
+        onSkipSurvey={() => finishBookingWithSurvey(false)}
+        feedbackSaving={feedbackSaving}
+      />
 
       <AlertDialog open={thammarapArunNoticeOpen} onOpenChange={setThammarapArunNoticeOpen}>
         <AlertDialogContent>

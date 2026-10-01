@@ -401,9 +401,9 @@ function buildPrintHtml(
         หมายเลขโทรศัพท์ ${phone}&nbsp;&nbsp;เป็นผู้รับผิดชอบ
       </p>
       <p class="tab-2">จึงเรียนมาเพื่อโปรดทราบและพิจารณาดำเนินการต่อไป</p><br /><br />
-      <p style="padding-left:8em">ลงชื่อ...........................................................</p>
-      <p style="padding-left:11.5em">( ............................................ )</p>
-      <p style="padding-left:8em">ตำแหน่ง ......................................................</p>
+      <p style="padding-left:8em">ลงชื่อ ${booker}</p>
+      <p style="padding-left:7.8em">( ${booker} )</p>
+      <p style="padding-left:7em">ตำแหน่ง ${position}</p>
 
       
     </div>

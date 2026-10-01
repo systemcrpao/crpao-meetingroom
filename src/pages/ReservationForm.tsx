@@ -16,6 +16,7 @@ import {
   formatDateThaiLongBE,
 } from "@/lib/thaiDate";
 import { useNavigate } from "react-router-dom";
+import { useThaiPublicHolidays } from "@/hooks/useThaiPublicHolidays";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -31,6 +32,7 @@ import { sendTelegramNotification } from "@/lib/telegram";
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -81,6 +83,11 @@ export default function ReservationForm() {
   const [endTime, setEndTime] = useState("");
   const [room, setRoom] = useState("");
   const [thammarapArunNoticeOpen, setThammarapArunNoticeOpen] = useState(false);
+  const [holidayDateConfirm, setHolidayDateConfirm] = useState<{
+    day: Date;
+    kind: "start" | "end";
+    holidayNames: string[];
+  } | null>(null);
   const [participants, setParticipants] = useState("");
   const [equipment, setEquipment] = useState<string[]>([]);
   const [bookerName, setBookerName] = useState("");
@@ -108,6 +115,46 @@ export default function ReservationForm() {
 
   // Today for disabling past dates
   const today = startOfDay(new Date());
+
+  const holidayYears = useMemo(() => {
+    const years = new Set<number>([new Date().getFullYear()]);
+    if (date) years.add(date.getFullYear());
+    if (endDate) years.add(endDate.getFullYear());
+    return [...years];
+  }, [date, endDate]);
+
+  const { getHolidaysForDay } = useThaiPublicHolidays(holidayYears);
+
+  const applyBookingDate = (d: Date, kind: "start" | "end") => {
+    if (kind === "start") {
+      setDate(d);
+      setCalendarOpen(false);
+      if (endDate && endDate <= d) setEndDate(undefined);
+    } else {
+      setEndDate(d);
+      setEndCalendarOpen(false);
+    }
+  };
+
+  const handleBookingDateSelect = (d: Date | undefined, kind: "start" | "end") => {
+    if (!d) return;
+    const holidays = getHolidaysForDay(d);
+    if (holidays.length > 0) {
+      setHolidayDateConfirm({
+        day: d,
+        kind,
+        holidayNames: holidays.map((h) => h.name_th),
+      });
+      return;
+    }
+    applyBookingDate(d, kind);
+  };
+
+  const confirmHolidayDateSelection = () => {
+    if (!holidayDateConfirm) return;
+    applyBookingDate(holidayDateConfirm.day, holidayDateConfirm.kind);
+    setHolidayDateConfirm(null);
+  };
 
   const toggleEquipment = (item: string) => {
     setEquipment((prev) =>
@@ -546,7 +593,7 @@ export default function ReservationForm() {
                     <Calendar
                       mode="single"
                       selected={date}
-                      onSelect={(d) => { setDate(d); setCalendarOpen(false); }}
+                      onSelect={(d) => handleBookingDateSelect(d, "start")}
                       disabled={(d) => d < today}
                       locale={th}
                       initialFocus
@@ -575,11 +622,7 @@ export default function ReservationForm() {
                       <Calendar
                         mode="single"
                         selected={date}
-                        onSelect={(d) => {
-                          setDate(d);
-                          setCalendarOpen(false);
-                          if (endDate && d && endDate <= d) setEndDate(undefined);
-                        }}
+                        onSelect={(d) => handleBookingDateSelect(d, "start")}
                         disabled={(d) => d < today}
                         locale={th}
                         initialFocus
@@ -606,7 +649,7 @@ export default function ReservationForm() {
                       <Calendar
                         mode="single"
                         selected={endDate}
-                        onSelect={(d) => { setEndDate(d); setEndCalendarOpen(false); }}
+                        onSelect={(d) => handleBookingDateSelect(d, "end")}
                         disabled={(d) => d < today || (date ? d <= date : false)}
                         locale={th}
                         initialFocus
@@ -736,6 +779,42 @@ export default function ReservationForm() {
           </form>
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={!!holidayDateConfirm}
+        onOpenChange={(open) => {
+          if (!open) setHolidayDateConfirm(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>แจ้งเตือนวันหยุดราชการ</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-foreground/90 leading-relaxed">
+                <p>
+                  วันที่ท่านเลือก{" "}
+                  <span className="font-medium">
+                    {holidayDateConfirm ? formatDateThaiLongBE(holidayDateConfirm.day) : ""}
+                  </span>{" "}
+                  ตรงกับวันหยุดราชการ
+                </p>
+                {holidayDateConfirm && (
+                  <ul className="list-disc pl-5 space-y-0.5">
+                    {holidayDateConfirm.holidayNames.map((name) => (
+                      <li key={name}>{name}</li>
+                    ))}
+                  </ul>
+                )}
+                <p>หากต้องการดำเนินการจองในวันดังกล่าว กรุณากด «ดำเนินการต่อ» มิฉะนั้นกด «ยกเลิก» เพื่อเลือกวันอื่น</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmHolidayDateSelection}>ดำเนินการต่อ</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={thammarapArunNoticeOpen} onOpenChange={setThammarapArunNoticeOpen}>
         <AlertDialogContent>

@@ -402,7 +402,7 @@ function buildPrintHtml(
       </p>
       <p class="tab-2">จึงเรียนมาเพื่อโปรดทราบและพิจารณาดำเนินการต่อไป</p><br /><br />
       <p style="padding-left:8em">ลงชื่อ &nbsp;&nbsp; ${booker}</p>
-      <p style="padding-left:10em">(&nbsp; ${booker} &nbsp;)</p>
+      <p style="padding-left:10em">&nbsp;(&nbsp; ${booker} &nbsp;)</p>
       <p style="padding-left:4em">ตำแหน่ง &nbsp;&nbsp; ${position}</p>
 
       

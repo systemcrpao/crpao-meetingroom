@@ -40,6 +40,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -317,6 +318,7 @@ export default function AdminAnnouncements() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>แก้ไขประกาศ</DialogTitle>
+            <DialogDescription>แก้ไขหัวข้อและเนื้อหาประกาศ</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-2">

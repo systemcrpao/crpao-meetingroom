@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -29,7 +28,10 @@ export function PublicAnnouncementDialog({ announcement, open, onOpenChange }: P
 
   return (
     <Dialog open={open} onOpenChange={(v) => (v ? onOpenChange(true) : handleClose())}>
-      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden">
+      <DialogContent
+        aria-describedby={undefined}
+        className="sm:max-w-lg p-0 gap-0 overflow-hidden [&>button:last-child]:hidden"
+      >
         <div className="relative bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-600 px-5 py-4 text-white pr-12">
           <Button
             type="button"
@@ -49,7 +51,6 @@ export function PublicAnnouncementDialog({ announcement, open, onOpenChange }: P
             <DialogTitle className="text-lg font-bold text-white leading-snug pr-2">
               {announcement.title}
             </DialogTitle>
-            <DialogDescription className="sr-only">เนื้อหาประกาศจากองค์การบริหารส่วนจังหวัดเชียงราย</DialogDescription>
           </DialogHeader>
         </div>
 

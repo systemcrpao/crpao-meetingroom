@@ -400,7 +400,7 @@ function buildPrintHtml(
         ตำแหน่ง ${position}&nbsp;&nbsp;<br />
         หมายเลขโทรศัพท์ ${phone}&nbsp;&nbsp;เป็นผู้รับผิดชอบ
       </p>
-      <p class="tab-2">จึงเรียนมาเพื่อโปรดทราบและพิจารณาดำเนินการต่อไป</p><br /><br />
+      <p class="tab-2">จึงเรียนมาเพื่อโปรดทราบและพิจารณาดำเนินการต่อไป</p><br />
       <p style="padding-left:8em">ลงชื่อ &nbsp;&nbsp; ${booker}</p>
       <p style="padding-left:10em">&nbsp;(&nbsp; ${booker} &nbsp;)</p>
       <p style="padding-left:4em">ตำแหน่ง &nbsp;&nbsp; ${position}</p>

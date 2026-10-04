@@ -18,9 +18,7 @@ export function BookingLayoutSwitcher({ className }: { className?: string }) {
       role="group"
       aria-label="มุมมองหน้าจอง"
     >
-      <span className="text-[10px] sm:text-xs text-muted-foreground font-medium leading-none">
-        มุมมอง
-      </span>
+
       <div className="flex rounded-lg border bg-background overflow-hidden w-full shadow-sm">
         {OPTIONS.map((opt, i) => {
           const Icon = opt.icon;

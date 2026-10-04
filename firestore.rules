@@ -26,6 +26,15 @@ service cloud.firestore {
       return adminRole() in ['admin', 'super_admin'];
     }
 
+    // ผู้ดูแลใน UI (รวม Super Admin จาก appConfig ที่ยังไม่มี adminUsers)
+    function canOperateAsAdmin() {
+      return isAdminUser() || isListedSuperAdmin();
+    }
+
+    function isOfficialPrintCounterId(id) {
+      return id.matches('officialPrint_[0-9]+');
+    }
+
     function isSuperAdminUser() {
       return adminRole() == 'super_admin';
     }
@@ -99,8 +108,8 @@ service cloud.firestore {
     match /reservations/{docId} {
       allow read: if true;
       allow create: if validNewReservation();
-      allow update: if isAdminUser() || publicReservationUpdate();
-      allow delete: if isAdminUser() || resource.data.status == 'pending';
+      allow update: if canOperateAsAdmin() || publicReservationUpdate();
+      allow delete: if canOperateAsAdmin() || resource.data.status == 'pending';
     }
 
     match /bookingFeedback/{docId} {
@@ -127,12 +136,20 @@ service cloud.firestore {
       allow delete: if canManageAsSuperAdmin();
     }
 
-    match /appConfig/access {
-      allow read: if true;
-      allow create: if signedIn() && !exists(accessConfigPath());
-      allow update, delete: if canManageAsSuperAdmin()
+    match /appConfig/{docId} {
+      allow read: if docId == 'access'
+        || (signedIn() && canOperateAsAdmin() && isOfficialPrintCounterId(docId));
+
+      allow create, update: if docId == 'access' && (
+        canManageAsSuperAdmin()
         || (signedIn() && isListedSuperAdmin())
-        || (signedIn() && superAdminListIsEmpty());
+        || (signedIn() && superAdminListIsEmpty())
+        || (signedIn() && !exists(accessConfigPath()))
+      );
+
+      allow create, update: if isOfficialPrintCounterId(docId) && canOperateAsAdmin();
+
+      allow delete: if docId == 'access' && canManageAsSuperAdmin();
     }
 
     match /{document=**} {

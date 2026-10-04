@@ -1,6 +1,7 @@
 import { resolveDepartmentForDisplay } from "@/lib/mockData";
 import { DEFAULT_MEETING_ROOMS, resolveRoom, type MeetingRoom } from "@/lib/meetingRooms";
 import { parseApprovedAt } from "@/lib/officialPrintNumber";
+import { hasBookingFeedbackForTracking } from "@/lib/bookingFeedback";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
@@ -127,13 +128,29 @@ function staffSignBlock(filled: boolean, name: string, position: string): string
   return filled ? officialSignBlock(name, position) : BLANK_SIGN_BLOCK;
 }
 
+function checkBoxMark(checked: boolean): string {
+  return `<span class="box">${checked ? "X" : "&nbsp;"}</span>`;
+}
+
+type OfficialPrintExtras = {
+  markApprovedChecks: boolean;
+  showCompletedStamp: boolean;
+  assetBase: string;
+};
+
 function buildRightColumnHtml(
   officeHeaderLine: string,
   filledStaff: boolean,
   roomCoordinator: { name: string; position: string },
   divisionChief: { name: string; position: string },
   secretaryChief: { name: string; position: string },
+  extras: OfficialPrintExtras,
 ): string {
+  const mark = extras.markApprovedChecks;
+  const completedStamp = extras.showCompletedStamp
+    ? `<img src="${extras.assetBase}survey-completed-stamp.png" class="survey-completed-stamp" alt="" />`
+    : "";
+
   return `
     <div class="col-right">
       <div class="office-box">
@@ -145,8 +162,8 @@ function buildRightColumnHtml(
         <p style="font-weight:700">เจ้าหน้าที่</p>
         <p>เรียน&nbsp;&nbsp;หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด</p>
         <div class="tab">
-          <div class="check-row"><span class="box">&nbsp;</span>ว่าง&nbsp;&nbsp;สามารถใช้งานได้</div>
-          <div class="check-row"><span class="box">&nbsp;</span>ไม่ว่าง&nbsp;&nbsp;เนื่องจาก...........................................................</div>
+          <div class="check-row">${checkBoxMark(mark)}ว่าง&nbsp;&nbsp;สามารถใช้งานได้</div>
+          <div class="check-row">${checkBoxMark(false)}ไม่ว่าง&nbsp;&nbsp;เนื่องจาก...........................................................</div>
         </div>
         <p>เห็นควรมอบหมายให้...................................................................</p>
         <p>เป็นผู้ดูแลห้องประชุม</p>
@@ -169,13 +186,14 @@ function buildRightColumnHtml(
         การอนุมัติ (หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด)
       </p>
       <div class="tab">
-        <div class="check-row"><span class="box">&nbsp;</span>เห็นชอบ</div>
-        <div class="check-row"><span class="box">&nbsp;</span>ดำเนินการ</div>
-        <div class="check-row"><span class="box">&nbsp;</span>...............................................................................</div>
+        <div class="check-row">${checkBoxMark(mark)}เห็นชอบ</div>
+        <div class="check-row">${checkBoxMark(mark)}ดำเนินการ</div>
+        <div class="check-row">${checkBoxMark(false)}...............................................................................</div>
       </div>
       ${staffSignBlock(filledStaff, secretaryChief.name, secretaryChief.position)}
 
       <div class="eval-box">
+        ${completedStamp}
         <p>ได้รับความร่วมมือตามเสนอเป็นที่เรียบร้อยแล้ว</p>
         <br />
         <br />
@@ -241,6 +259,7 @@ function buildPrintHtml(
   data: Record<string, unknown>,
   rooms: MeetingRoom[] = DEFAULT_MEETING_ROOMS,
   mode: ReservationPrintMode = "booking",
+  officialExtras?: Pick<OfficialPrintExtras, "showCompletedStamp">,
 ): string {
   const isOfficial = mode === "official";
   const assetBase = import.meta.env.BASE_URL;
@@ -296,12 +315,18 @@ function buildPrintHtml(
   const { roomCoordinator, divisionChief, secretaryChief } = OFFICIAL_STAFF_SIGNATURES;
 
   const rightHeaderLine = isOfficial ? officeHeaderLine : blankOfficeHeader;
+  const isApproved = String(data.status ?? "") === "approved";
   const rightColumnHtml = buildRightColumnHtml(
     rightHeaderLine,
     isOfficial,
     roomCoordinator,
     divisionChief,
     secretaryChief,
+    {
+      assetBase,
+      markApprovedChecks: isOfficial && isApproved,
+      showCompletedStamp: isOfficial && !!officialExtras?.showCompletedStamp,
+    },
   );
 
 
@@ -427,10 +452,24 @@ function buildPrintHtml(
       margin-bottom: 4pt;
     }
     .eval-box {
+      position: relative;
       border: 0.5pt solid #000;
       padding: 6pt;
       font-size: 9pt;
       margin-top: 8pt;
+      min-height: 52pt;
+    }
+    .survey-completed-stamp {
+      position: absolute;
+      right: 6pt;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 64pt;
+      height: auto;
+      opacity: 0.88;
+      pointer-events: none;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     .th-word { white-space: nowrap; }
     /* กระจายตัว (Thai Distributed) — แยกบรรทัดให้ justify ทีละบรรทัด */
@@ -535,7 +574,15 @@ export const generateReservationPDF = async (
 ) => {
   try {
     const enriched = await enrichMultiDayData(formData);
-    const html = buildPrintHtml(enriched, rooms, mode);
+    let showCompletedStamp = false;
+    if (mode === "official" && enriched.trackingNumber) {
+      try {
+        showCompletedStamp = await hasBookingFeedbackForTracking(String(enriched.trackingNumber));
+      } catch (e) {
+        console.warn("hasBookingFeedbackForTracking:", e);
+      }
+    }
+    const html = buildPrintHtml(enriched, rooms, mode, { showCompletedStamp });
     const win = window.open("", "_blank");
     if (!win) {
       alert("เบราว์เซอร์บล็อกหน้าต่างป๊อปอัป กรุณาอนุญาตแล้วลองใหม่");

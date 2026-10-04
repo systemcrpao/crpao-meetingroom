@@ -1,4 +1,8 @@
 import { format } from "date-fns";
+import { collection, getDocs, limit, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+export const BOOKING_FEEDBACK_COLLECTION = "bookingFeedback";
 
 /** คีย์คะแนนใน Firestore / แบบประเมิน */
 export type ScoreKey =
@@ -259,4 +263,18 @@ export function surveyScoresToFirestore(scores: BookingSurveyScores): Record<str
     out[key] = scores[key] >= 1 && scores[key] <= 5 ? scores[key] : null;
   }
   return out;
+}
+
+/** มีแบบประเมินหลังจอง (สำหรับแสดงตราประทับบนแบบพิมพ์เจ้าหน้าที่) */
+export async function hasBookingFeedbackForTracking(trackingNumber: string): Promise<boolean> {
+  const code = trackingNumber.trim().toUpperCase();
+  if (!code) return false;
+  const snap = await getDocs(
+    query(
+      collection(db, BOOKING_FEEDBACK_COLLECTION),
+      where("trackingNumber", "==", code),
+      limit(1),
+    ),
+  );
+  return !snap.empty;
 }

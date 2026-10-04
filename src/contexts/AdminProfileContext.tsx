@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,6 +35,12 @@ export function AdminProfileProvider({ children }: { children: React.ReactNode }
   const [userDocLoading, setUserDocLoading] = useState(false);
   const [accessConfigLoading, setAccessConfigLoading] = useState(true);
   const [remoteSuperAdminEmails, setRemoteSuperAdminEmails] = useState<string[]>([]);
+  const ensureSuperAdminRef = useRef<"idle" | "pending" | "done" | "failed">("idle");
+  const remoteSuperAdminKey = remoteSuperAdminEmails.join("\n");
+
+  useEffect(() => {
+    ensureSuperAdminRef.current = "idle";
+  }, [user?.email]);
 
   useEffect(() => {
     const ref = doc(db, APP_CONFIG_COLLECTION, APP_ACCESS_DOC_ID);
@@ -86,16 +92,28 @@ export function AdminProfileProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!user?.email || accessConfigLoading || userDocLoading) return;
     if (!isSuperAdminEmail(user.email, remoteSuperAdminEmails)) return;
-    if (firestoreProfile?.isSuperAdmin) return;
+    if (firestoreProfile?.isSuperAdmin) {
+      ensureSuperAdminRef.current = "done";
+      return;
+    }
+    if (ensureSuperAdminRef.current === "pending" || ensureSuperAdminRef.current === "failed") {
+      return;
+    }
 
-    void ensureSuperAdminFirestoreRecord(user.email, remoteSuperAdminEmails).catch((err) => {
-      console.warn("ensureSuperAdminFirestoreRecord:", err);
-    });
+    ensureSuperAdminRef.current = "pending";
+    void ensureSuperAdminFirestoreRecord(user.email, remoteSuperAdminEmails)
+      .then(() => {
+        ensureSuperAdminRef.current = "done";
+      })
+      .catch((err) => {
+        ensureSuperAdminRef.current = "failed";
+        console.warn("ensureSuperAdminFirestoreRecord (ครั้งเดียวต่อ session):", err);
+      });
   }, [
     user?.email,
     accessConfigLoading,
     userDocLoading,
-    remoteSuperAdminEmails,
+    remoteSuperAdminKey,
     firestoreProfile?.isSuperAdmin,
   ]);
 

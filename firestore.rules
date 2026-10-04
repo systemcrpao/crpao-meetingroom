@@ -52,14 +52,15 @@ service cloud.firestore {
       return isSuperAdminUser() || isListedSuperAdmin();
     }
 
-    // Super Admin ครั้งแรก (env / ยังไม่มี adminUsers) — ลงทะเบียนตัวเองได้
-    function selfRegisterSuperAdmin() {
+    // สร้างเอกสาร adminUsers ของตัวเองครั้งแรก (Super Admin จาก env / ยังไม่มีใน Firestore)
+    // จำกัดเฉพาะ create — บัญชี Auth ต้องล็อกอินแล้ว (ไม่เปิดให้สมัครสาธารณะ)
+    function selfCreateSuperAdmin() {
       return signedIn()
+        && userEmail() != ''
         && docId == userEmail()
         && !adminUserExists()
         && request.resource.data.role == 'super_admin'
-        && request.resource.data.get('email', '').lower() == userEmail()
-        && (isListedSuperAdmin() || superAdminListIsEmpty());
+        && request.resource.data.get('email', '').lower() == userEmail();
     }
 
     function publicReservationUpdate() {
@@ -121,7 +122,8 @@ service cloud.firestore {
     match /adminUsers/{docId} {
       allow read: if signedIn()
         && (docId == userEmail() || canManageAsSuperAdmin());
-      allow create, update: if canManageAsSuperAdmin() || selfRegisterSuperAdmin();
+      allow create: if canManageAsSuperAdmin() || selfCreateSuperAdmin();
+      allow update: if canManageAsSuperAdmin();
       allow delete: if canManageAsSuperAdmin();
     }
 

@@ -7,9 +7,9 @@ import {
 import { th } from "date-fns/locale";
 import {
   ChevronLeft, ChevronRight, CalendarDays, CalendarRange,
-  Clock, MapPin, User, Building, LayoutPanelLeft, ClipboardEdit,
-  ChevronUp, ChevronDown,
+  Clock, MapPin, User, Building,
 } from "lucide-react";
+import { useBookingPageLayout } from "@/contexts/BookingPageLayoutContext";
 import { useThaiPublicHolidays } from "@/hooks/useThaiPublicHolidays";
 import {
   CalendarHolidayLegendItem,
@@ -50,28 +50,7 @@ import {
 const WEEK_LABELS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 8);
 
-export type BookingPageLayout = "both" | "calendar" | "form";
-const LAYOUT_STORAGE_KEY = "booking-page-layout";
-const LAYOUT_BAR_HIDDEN_KEY = "booking-page-layout-bar-hidden";
-const LAYOUT_BAR_ANIM_MS = 320;
-
-function loadBookingPageLayout(): BookingPageLayout {
-  try {
-    const v = localStorage.getItem(LAYOUT_STORAGE_KEY);
-    if (v === "both" || v === "calendar" || v === "form") return v;
-  } catch {
-    /* ignore */
-  }
-  return "both";
-}
-
-function loadLayoutBarHidden(): boolean {
-  try {
-    return localStorage.getItem(LAYOUT_BAR_HIDDEN_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
+export type { BookingPageLayout } from "@/contexts/BookingPageLayoutContext";
 
 export default function PublicPage() {
   const [reservations, setReservations] = useState<any[]>([]);
@@ -82,49 +61,9 @@ export default function PublicPage() {
   );
   const [selectedDay, setSelectedDay]   = useState<Date | null>(() => new Date());
   const [roomFilter, setRoomFilter]     = useState("all");
-  const [pageLayout, setPageLayout] = useState<BookingPageLayout>(loadBookingPageLayout);
-  const [layoutBarExpanded, setLayoutBarExpanded] = useState(() => !loadLayoutBarHidden());
+  const { pageLayout, showCalendar, showForm } = useBookingPageLayout();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
-
-  const setLayoutBarExpandedAnimated = (expanded: boolean) => {
-    setLayoutBarExpanded(expanded);
-  };
-
-  useEffect(() => {
-    const delay = layoutBarExpanded ? 0 : LAYOUT_BAR_ANIM_MS;
-    const t = window.setTimeout(() => {
-      try {
-        localStorage.setItem(LAYOUT_BAR_HIDDEN_KEY, layoutBarExpanded ? "0" : "1");
-      } catch {
-        /* ignore */
-      }
-    }, delay);
-    return () => window.clearTimeout(t);
-  }, [layoutBarExpanded]);
-
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(LAYOUT_BAR_HIDDEN_KEY) != null) return;
-      if (window.matchMedia("(max-width: 767px)").matches) {
-        setLayoutBarExpanded(false);
-      }
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  const setLayoutAndSave = (layout: BookingPageLayout) => {
-    setPageLayout(layout);
-    try {
-      localStorage.setItem(LAYOUT_STORAGE_KEY, layout);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const showCalendar = pageLayout === "both" || pageLayout === "calendar";
-  const showForm = pageLayout === "both" || pageLayout === "form";
   const { activeRooms, allRooms } = useMeetingRooms();
 
   const activeAnnouncement = useMemo(
@@ -197,92 +136,6 @@ export default function PublicPage() {
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 overflow-hidden">
-        <div
-          className={cn("grid", layoutBarExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}
-          style={{ transition: `grid-template-rows ${LAYOUT_BAR_ANIM_MS}ms ease-in-out` }}
-        >
-          <div className="min-h-0 overflow-hidden">
-            <div
-              className={cn(
-                "px-3 md:px-5 py-2.5 ease-in-out",
-                layoutBarExpanded
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 -translate-y-2 pointer-events-none",
-              )}
-              style={{ transition: `opacity ${LAYOUT_BAR_ANIM_MS}ms ease-in-out, transform ${LAYOUT_BAR_ANIM_MS}ms ease-in-out` }}
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 max-w-[1600px] mx-auto">
-                <p className="text-xs text-muted-foreground sm:text-sm font-medium shrink-0">มุมมองหน้าจอง</p>
-                <div className="flex rounded-lg border overflow-hidden w-full sm:w-auto">
-                  <Button
-                    type="button"
-                    variant={pageLayout === "both" ? "default" : "ghost"}
-                    size="sm"
-                    className="rounded-none h-9 flex-1 sm:flex-none px-2 sm:px-3 text-xs gap-1"
-                    onClick={() => setLayoutAndSave("both")}
-                  >
-                    <LayoutPanelLeft className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">ทั้งคู่</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={pageLayout === "calendar" ? "default" : "ghost"}
-                    size="sm"
-                    className="rounded-none h-9 flex-1 sm:flex-none px-2 sm:px-3 text-xs gap-1 border-x"
-                    onClick={() => setLayoutAndSave("calendar")}
-                  >
-                    <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">ปฏิทิน</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={pageLayout === "form" ? "default" : "ghost"}
-                    size="sm"
-                    className="rounded-none h-9 flex-1 sm:flex-none px-2 sm:px-3 text-xs gap-1"
-                    onClick={() => setLayoutAndSave("form")}
-                  >
-                    <ClipboardEdit className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">แบบฟอร์ม</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="rounded-none h-9 px-2.5 border-l shrink-0 text-muted-foreground hover:text-foreground"
-                    onClick={() => setLayoutBarExpandedAnimated(false)}
-                    aria-label="พับแถบมุมมอง"
-                  >
-                    <ChevronUp className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div
-          className={cn(
-            "overflow-hidden ease-in-out",
-            layoutBarExpanded ? "max-h-0 opacity-0" : "max-h-10 opacity-100",
-          )}
-          style={{ transition: `max-height ${LAYOUT_BAR_ANIM_MS}ms ease-in-out, opacity ${LAYOUT_BAR_ANIM_MS}ms ease-in-out` }}
-        >
-          <div className="flex justify-center max-w-[1600px] mx-auto">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 w-full sm:w-auto px-4 rounded-none text-muted-foreground hover:text-foreground"
-              onClick={() => setLayoutBarExpandedAnimated(true)}
-              aria-label="แสดงแถบมุมมอง"
-            >
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
     <div
       className={cn(
         "flex flex-col flex-1",
@@ -658,8 +511,7 @@ export default function PublicPage() {
       <div
         className={cn(
           "w-full px-3 md:px-5 pt-3 md:pt-5 pb-3 md:pb-5",
-          pageLayout === "both" && "lg:w-[42%] xl:w-[35%] lg:self-start lg:sticky",
-          pageLayout === "both" && (!layoutBarExpanded ? "lg:top-7" : "lg:top-[3.25rem]"),
+          pageLayout === "both" && "lg:w-[42%] xl:w-[35%] lg:self-start lg:sticky lg:top-3",
           pageLayout === "form" && "max-w-3xl mx-auto flex-1",
         )}
       >

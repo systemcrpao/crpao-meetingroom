@@ -94,6 +94,30 @@ export function formatBookingPeriod(data: Record<string, unknown>): string {
 
 export type ReservationPrintMode = "booking" | "official";
 
+/** ลายเซ็นส่วนเจ้าหน้าที่ — แสดงในโหมด official (admin พิมพ์หลังอนุมัติ) เท่านั้น */
+const OFFICIAL_STAFF_SIGNATURES = {
+  roomCoordinator: {
+    name: "ศิริลักษณ์ บุญทวงค์",
+    position: "ผู้ช่วยนักจัดการงานทั่วไป",
+  },
+  divisionChief: {
+    name: "ศุภกร รุ้งคมชาญ",
+    position: "หัวหน้าฝ่ายอำนวยการ",
+  },
+  secretaryChief: {
+    name: "นางราตรี ธงศรี",
+    position: "หัวหน้าสำนักปลัด อบจ.",
+  },
+} as const;
+
+function officialSignBlock(name: string, position: string): string {
+  const n = esc(name);
+  return `
+        <p style="padding-left:8em">ลงชื่อ &nbsp;&nbsp; ${n}</p>
+        <p style="padding-left:11.5em">(&nbsp;${n}&nbsp;)</p>
+        <p style="padding-left:8em">ตำแหน่ง &nbsp;&nbsp; ${esc(position)}</p>`;
+}
+
 function formatApprovalStamp(d: Date) {
   return {
     dd: String(d.getDate()).padStart(2, "0"),
@@ -195,6 +219,67 @@ function buildPrintHtml(
       `<div class="check-row"><span class="box">${equipment.includes(item.key) ? "X" : "&nbsp;"}</span>${esc(item.label)}</div>`,
   ).join("");
 
+  const { roomCoordinator, divisionChief, secretaryChief } = OFFICIAL_STAFF_SIGNATURES;
+
+  const rightColumnHtml = isOfficial
+    ? `
+    <div class="col-right">
+      <div class="office-box">
+        <div class="en">MEETING ROOM RESERVATION FORM</div>
+        <div>${officeHeaderLine}</div>
+      </div>
+
+      <div class="staff-block">
+        <p style="font-weight:700">เจ้าหน้าที่</p>
+        <p>เรียน&nbsp;&nbsp;หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด</p>
+        <div class="tab">
+          <div class="check-row"><span class="box">&nbsp;</span>ว่าง&nbsp;&nbsp;สามารถใช้งานได้</div>
+          <div class="check-row"><span class="box">&nbsp;</span>ไม่ว่าง&nbsp;&nbsp;เนื่องจาก...........................................................</div>
+        </div>
+        <p>เห็นควรมอบหมายให้...................................................................</p>
+        <p>เป็นผู้ดูแลห้องประชุม</p>
+        ${officialSignBlock(roomCoordinator.name, roomCoordinator.position)}
+      </div>
+
+      <div class="staff-block">
+        <p style="font-weight:700">ข้อพิจารณา</p>
+        <p style="font-size:10pt">ความเห็นหัวหน้าฝ่ายอำนวยการ</p>
+        <div class="thai-distribute-block">
+          <p class="thai-distributed-line">กําชับให้ผู้ใช้ห้องประชุมฯ ดูแลความสะอาดและรักษา</p>
+          <p class="thai-distributed-line">ทรัพย์สินร่วมกับเจ้าหน้าที่ประจําห้องประชุม เพื่อมิให้</p>
+          <p class="thai-distributed-plain">เกิดความเสียหายพร้อมทั้ง ปิดระบบไฟฟ้าและอุปกรณ์ทุกชนิดหลังเสร็จสิ้นการประชุม</p>
+        </div>
+        <p class="tab-2">จึงเรียนมาเพื่อโปรดพิจารณา</p>
+        ${officialSignBlock(divisionChief.name, divisionChief.position)}
+      </div>
+
+      <p style="border-top:0.5pt solid #000;padding-top:8pt;margin-top:12pt;font-weight:700">
+        การอนุมัติ (หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด)
+      </p>
+      <div class="tab">
+        <div class="check-row"><span class="box">&nbsp;</span>เห็นชอบ</div>
+        <div class="check-row"><span class="box">&nbsp;</span>ดำเนินการ</div>
+        <div class="check-row"><span class="box">&nbsp;</span>...............................................................................</div>
+      </div>
+      ${officialSignBlock(secretaryChief.name, secretaryChief.position)}
+
+      <div class="eval-box">
+        <p>ได้รับความร่วมมือตามเสนอเป็นที่เรียบร้อยแล้ว</p>
+        <br />
+        <br />
+        <p style="padding-left:11.5em">( ............................................ )</p>
+        <p style="padding-left:9em">วันที่......................................................</p>
+        <p style="font-weight:700">ประเมินความพึงพอใจในการขอรับบริการ</p>
+        <p>(&nbsp;&nbsp;) ดีมาก &nbsp; (&nbsp;&nbsp;) ดี &nbsp; (&nbsp;&nbsp;) ปานกลาง &nbsp; (&nbsp;&nbsp;) น้อย &nbsp; (&nbsp;&nbsp;) ควรปรับปรุง</p>
+        <p style="font-weight:700">ข้อเสนอแนะ</p>
+        <p>...........................................................................................................</p>
+        <p>...........................................................................................................</p>
+      </div>
+    </div>`
+    : "";
+
+  const sheetClass = isOfficial ? "sheet" : "sheet sheet-single";
+
   return `<!DOCTYPE html>
 <html lang="th">
 <head>
@@ -255,6 +340,14 @@ function buildPrintHtml(
       width: 0;
       border-left: 0.5pt solid #000;
       pointer-events: none;
+    }
+    .sheet-single::before {
+      display: none;
+    }
+    .sheet-single .col-left {
+      width: 100%;
+      flex: 1 1 100%;
+      padding-right: 0;
     }
     .col-left {
       width: 50%;
@@ -365,7 +458,7 @@ function buildPrintHtml(
   </style>
 </head>
 <body>
-  <div class="sheet">
+  <div class="${sheetClass}">
     <div class="col-left">
       <div class="center">
         <div class="date-line" style="font-weight:700">หมายเลขติดตาม ${tracking}</div>
@@ -405,69 +498,8 @@ function buildPrintHtml(
       <p style="padding-left:10em">&nbsp;(&nbsp; ${booker} &nbsp;)</p>
       <p style="padding-left:4em">ตำแหน่ง &nbsp;&nbsp; ${position}</p>
 
-      
     </div>
-
-    <div class="col-right">
-      <div class="office-box">
-        <div class="en">MEETING ROOM RESERVATION FORM</div>
-        <div>${officeHeaderLine}</div>
-      </div>
-
-      <div class="staff-block">
-        <p style="font-weight:700">เจ้าหน้าที่</p>
-        <p>เรียน&nbsp;&nbsp;หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด</p>
-        <div class="tab">
-          <div class="check-row"><span class="box">&nbsp;</span>ว่าง&nbsp;&nbsp;สามารถใช้งานได้</div>
-          <div class="check-row"><span class="box">&nbsp;</span>ไม่ว่าง&nbsp;&nbsp;เนื่องจาก...........................................................</div>
-        </div>
-        <p>เห็นควรมอบหมายให้...................................................................</p>
-        <p>เป็นผู้ดูแลห้องประชุม</p><br />
-        <p style="padding-left:8em">ลงชื่อ...........................................................</p>
-      <p style="padding-left:11.5em">( ............................................ )</p>
-      <p style="padding-left:8em">ตำแหน่ง ......................................................</p>
-      </div>
-
-      <div class="staff-block">
-        <p style="font-weight:700">ข้อพิจารณา</p>
-        <p style="font-size:10pt">ความเห็นหัวหน้าฝ่ายอำนวยการ</p>
-        <p style="font-size:10pt">
-        <div class="thai-distribute-block">
-          <p class="thai-distributed-line">กําชับให้ผู้ใช้ห้องประชุมฯ ดูแลความสะอาดและรักษา</p>
-          <p class="thai-distributed-line">ทรัพย์สินร่วมกับเจ้าหน้าที่ประจําห้องประชุม เพื่อมิให้</p>
-          <p class="thai-distributed-plain">เกิดความเสียหายพร้อมทั้ง ปิดระบบไฟฟ้าและอุปกรณ์ทุกชนิดหลังเสร็จสิ้นการประชุม</p>
-        </div>
-        </p>
-        <p class="tab-2">จึงเรียนมาเพื่อโปรดพิจารณา</p>
-        
-        <br /><br /><br /><br />
-      </div>
-      
-      <p style="border-top:0.5pt solid #000;padding-top:8pt;margin-top:12pt;font-weight:700">
-        การอนุมัติ (หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด)
-      </p>
-      <div class="tab">
-        <div class="check-row"><span class="box">&nbsp;</span>เห็นชอบ</div>
-        <div class="check-row"><span class="box">&nbsp;</span>ดำเนินการ</div>
-        <div class="check-row"><span class="box">&nbsp;</span>...............................................................................</div>
-      </div>
-      <br />
-      <br />
-      <br />
-      <br />
-      <div class="eval-box">
-        <p>ได้รับความร่วมมือตามเสนอเป็นที่เรียบร้อยแล้ว</p>
-        <br />
-        <br />
-        <p style="padding-left:11.5em">( ............................................ )</p>
-        <p style="padding-left:9em">วันที่......................................................</p>
-        <p style="font-weight:700">ประเมินความพึงพอใจในการขอรับบริการ</p>
-        <p>(&nbsp;&nbsp;) ดีมาก &nbsp; (&nbsp;&nbsp;) ดี &nbsp; (&nbsp;&nbsp;) ปานกลาง &nbsp; (&nbsp;&nbsp;) น้อย &nbsp; (&nbsp;&nbsp;) ควรปรับปรุง</p>
-        <p style="font-weight:700">ข้อเสนอแนะ</p>
-        <p>...........................................................................................................</p>
-        <p>...........................................................................................................</p>
-      </div>
-    </div>
+    ${rightColumnHtml}
   </div>
   <script>
     window.onload = function() {

@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_APP_ID: string;
   readonly VITE_TELEGRAM_BOT_TOKEN?: string;
   readonly VITE_TELEGRAM_CHAT_ID?: string;
+  readonly VITE_SUPER_ADMIN_EMAILS?: string;
+  readonly VITE_BASE_PATH?: string;
 }
 
 interface ImportMeta {

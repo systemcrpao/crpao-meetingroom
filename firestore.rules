@@ -1,0 +1,140 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userEmail() {
+      return signedIn() ? request.auth.token.email.lower() : '';
+    }
+
+    function adminUserPath() {
+      return /databases/$(database)/documents/adminUsers/$(userEmail());
+    }
+
+    function adminUserExists() {
+      return signedIn() && exists(adminUserPath());
+    }
+
+    function adminRole() {
+      return adminUserExists() ? get(adminUserPath()).data.role : '';
+    }
+
+    function isAdminUser() {
+      return adminRole() in ['admin', 'super_admin'];
+    }
+
+    function isSuperAdminUser() {
+      return adminRole() == 'super_admin';
+    }
+
+    function accessConfigPath() {
+      return /databases/$(database)/documents/appConfig/access;
+    }
+
+    function superAdminEmailList() {
+      return exists(accessConfigPath())
+        ? get(accessConfigPath()).data.get('superAdminEmails', [])
+        : [];
+    }
+
+    function isListedSuperAdmin() {
+      return signedIn() && userEmail() in superAdminEmailList();
+    }
+
+    function superAdminListIsEmpty() {
+      return !exists(accessConfigPath()) || superAdminEmailList().size() == 0;
+    }
+
+    function canManageAsSuperAdmin() {
+      return isSuperAdminUser() || isListedSuperAdmin();
+    }
+
+    // Super Admin ครั้งแรก (env / ยังไม่มี adminUsers) — ลงทะเบียนตัวเองได้
+    function selfRegisterSuperAdmin() {
+      return signedIn()
+        && docId == userEmail()
+        && !adminUserExists()
+        && request.resource.data.role == 'super_admin'
+        && request.resource.data.get('email', '').lower() == userEmail()
+        && (isListedSuperAdmin() || superAdminListIsEmpty());
+    }
+
+    function publicReservationUpdate() {
+      return resource.data.status == request.resource.data.status
+        && (
+          (
+            resource.data.status == 'pending'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['room', 'date', 'startTime', 'endTime'])
+          )
+          || (
+            resource.data.status == 'approved'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['changeRequest', 'changeRequestedAt'])
+            && request.resource.data.changeRequest.type in ['edit', 'cancel']
+          )
+        );
+    }
+
+    function validNewReservation() {
+      let d = request.resource.data;
+      return d.status == 'pending'
+        && d.trackingNumber is string
+        && d.trackingNumber.size() >= 4
+        && d.room is string
+        && d.date is string
+        && d.startTime is string
+        && d.endTime is string;
+    }
+
+    function validBookingFeedback() {
+      let d = request.resource.data;
+      return d.trackingNumber is string && d.trackingNumber.size() >= 4;
+    }
+
+    match /reservations/{docId} {
+      allow read: if true;
+      allow create: if validNewReservation();
+      allow update: if isAdminUser() || publicReservationUpdate();
+      allow delete: if isAdminUser() || resource.data.status == 'pending';
+    }
+
+    match /bookingFeedback/{docId} {
+      allow read: if canManageAsSuperAdmin();
+      allow create: if validBookingFeedback();
+      allow update, delete: if canManageAsSuperAdmin();
+    }
+
+    match /announcements/{docId} {
+      allow read: if true;
+      allow create, update, delete: if canManageAsSuperAdmin();
+    }
+
+    match /meetingRooms/{docId} {
+      allow read: if true;
+      allow create, update, delete: if canManageAsSuperAdmin();
+    }
+
+    match /adminUsers/{docId} {
+      allow read: if signedIn()
+        && (docId == userEmail() || canManageAsSuperAdmin());
+      allow create, update: if canManageAsSuperAdmin() || selfRegisterSuperAdmin();
+      allow delete: if canManageAsSuperAdmin();
+    }
+
+    match /appConfig/access {
+      allow read: if true;
+      allow create: if signedIn() && !exists(accessConfigPath());
+      allow update, delete: if canManageAsSuperAdmin()
+        || (signedIn() && isListedSuperAdmin())
+        || (signedIn() && superAdminListIsEmpty());
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

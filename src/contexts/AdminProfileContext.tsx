@@ -14,6 +14,7 @@ import {
   isSuperAdminEmail,
   normalizeEmail,
 } from "@/lib/adminAccess";
+import { ensureSuperAdminFirestoreRecord } from "@/lib/ensureSuperAdminFirestore";
 
 interface AdminProfileContextType {
   profile: AdminProfile | null;
@@ -81,6 +82,22 @@ export function AdminProfileProvider({ children }: { children: React.ReactNode }
     );
     return () => unsub();
   }, [user?.email]);
+
+  useEffect(() => {
+    if (!user?.email || accessConfigLoading || userDocLoading) return;
+    if (!isSuperAdminEmail(user.email, remoteSuperAdminEmails)) return;
+    if (firestoreProfile?.isSuperAdmin) return;
+
+    void ensureSuperAdminFirestoreRecord(user.email, remoteSuperAdminEmails).catch((err) => {
+      console.warn("ensureSuperAdminFirestoreRecord:", err);
+    });
+  }, [
+    user?.email,
+    accessConfigLoading,
+    userDocLoading,
+    remoteSuperAdminEmails,
+    firestoreProfile?.isSuperAdmin,
+  ]);
 
   const profile = useMemo((): AdminProfile | null => {
     if (!user?.email) return null;

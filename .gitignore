@@ -11,12 +11,29 @@ node_modules
 functions/node_modules
 dist
 *.tsbuildinfo
+dist-ssr
+
+# --- ความลับ / ค่าตั้งค่าเครื่อง (ห้าม push สาธารณะ) ---
 .env
 .env.*
 !.env.example
 .env.local
-dist-ssr
 *.local
+
+# Firebase CLI, service account, debug
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+*-firebase-adminsdk-*.json
+serviceAccount*.json
+service-account*.json
+google-services.json
+GoogleService-Info.plist
+
+# Secrets ใน Cloud Functions (ถ้ามีไฟล์ local)
+functions/.env
+functions/.env.*
+functions/.secret*
 
 # เอกสารภายใน — ไม่ push ขึ้น GitHub
 docs/

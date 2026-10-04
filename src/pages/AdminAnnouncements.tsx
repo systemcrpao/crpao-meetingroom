@@ -112,7 +112,11 @@ export default function AdminAnnouncements() {
       toast({ title: "บันทึกประกาศแล้ว" });
     } catch (e) {
       console.error(e);
-      toast({ title: "บันทึกไม่สำเร็จ", variant: "destructive" });
+      const hint =
+        e instanceof Error && /permission/i.test(e.message)
+          ? " — ลองออกจากระบบแล้วเข้าใหม่ หรือ deploy firestore.rules ล่าสุด"
+          : "";
+      toast({ title: `บันทึกไม่สำเร็จ${hint}`, variant: "destructive" });
     } finally {
       setCreating(false);
     }

@@ -114,8 +114,8 @@ function officialSignBlock(name: string, position: string): string {
   const n = esc(name);
   return `
         <p style="padding-left:8em">ลงชื่อ &nbsp;&nbsp; ${n}</p>
-        <p style="padding-left:10em">&nbsp;(&nbsp;${n}&nbsp;)</p>
-        <p style="padding-left:4em">ตำแหน่ง &nbsp;&nbsp; ${esc(position)}</p>`;
+        <p style="padding-left:10em">&nbsp;&nbsp;(&nbsp;${n}&nbsp;)</p>
+        <p style="padding-left:5em">ตำแหน่ง &nbsp;&nbsp; ${esc(position)}</p>`;
 }
 
 const BLANK_SIGN_BLOCK = `

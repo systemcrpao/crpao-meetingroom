@@ -118,6 +118,78 @@ function officialSignBlock(name: string, position: string): string {
         <p style="padding-left:4em">ตำแหน่ง &nbsp;&nbsp; ${esc(position)}</p>`;
 }
 
+const BLANK_SIGN_BLOCK = `
+        <p style="padding-left:8em">ลงชื่อ...........................................................</p>
+        <p style="padding-left:11.5em">( ............................................ )</p>
+        <p style="padding-left:8em">ตำแหน่ง ......................................................</p>`;
+
+function staffSignBlock(filled: boolean, name: string, position: string): string {
+  return filled ? officialSignBlock(name, position) : BLANK_SIGN_BLOCK;
+}
+
+function buildRightColumnHtml(
+  officeHeaderLine: string,
+  filledStaff: boolean,
+  roomCoordinator: { name: string; position: string },
+  divisionChief: { name: string; position: string },
+  secretaryChief: { name: string; position: string },
+): string {
+  return `
+    <div class="col-right">
+      <div class="office-box">
+        <div class="en">MEETING ROOM RESERVATION FORM</div>
+        <div>${officeHeaderLine}</div>
+      </div>
+
+      <div class="staff-block">
+        <p style="font-weight:700">เจ้าหน้าที่</p>
+        <p>เรียน&nbsp;&nbsp;หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด</p>
+        <div class="tab">
+          <div class="check-row"><span class="box">&nbsp;</span>ว่าง&nbsp;&nbsp;สามารถใช้งานได้</div>
+          <div class="check-row"><span class="box">&nbsp;</span>ไม่ว่าง&nbsp;&nbsp;เนื่องจาก...........................................................</div>
+        </div>
+        <p>เห็นควรมอบหมายให้...................................................................</p>
+        <p>เป็นผู้ดูแลห้องประชุม</p>
+        ${staffSignBlock(filledStaff, roomCoordinator.name, roomCoordinator.position)}
+      </div>
+
+      <div class="staff-block">
+        <p style="font-weight:700">ข้อพิจารณา</p>
+        <p style="font-size:10pt">ความเห็นหัวหน้าฝ่ายอำนวยการ</p>
+        <div class="thai-distribute-block">
+          <p class="thai-distributed-line">กําชับให้ผู้ใช้ห้องประชุมฯ ดูแลความสะอาดและรักษา</p>
+          <p class="thai-distributed-line">ทรัพย์สินร่วมกับเจ้าหน้าที่ประจําห้องประชุม เพื่อมิให้</p>
+          <p class="thai-distributed-plain">เกิดความเสียหายพร้อมทั้ง ปิดระบบไฟฟ้าและอุปกรณ์ทุกชนิดหลังเสร็จสิ้นการประชุม</p>
+        </div>
+        <p class="tab-2">จึงเรียนมาเพื่อโปรดพิจารณา</p>
+        ${staffSignBlock(filledStaff, divisionChief.name, divisionChief.position)}
+      </div>
+
+      <p style="border-top:0.5pt solid #000;padding-top:8pt;margin-top:12pt;font-weight:700">
+        การอนุมัติ (หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด)
+      </p>
+      <div class="tab">
+        <div class="check-row"><span class="box">&nbsp;</span>เห็นชอบ</div>
+        <div class="check-row"><span class="box">&nbsp;</span>ดำเนินการ</div>
+        <div class="check-row"><span class="box">&nbsp;</span>...............................................................................</div>
+      </div>
+      ${staffSignBlock(filledStaff, secretaryChief.name, secretaryChief.position)}
+
+      <div class="eval-box">
+        <p>ได้รับความร่วมมือตามเสนอเป็นที่เรียบร้อยแล้ว</p>
+        <br />
+        <br />
+        <p style="padding-left:11.5em">( ............................................ )</p>
+        <p style="padding-left:9em">วันที่......................................................</p>
+        <p style="font-weight:700">ประเมินความพึงพอใจในการขอรับบริการ</p>
+        <p>(&nbsp;&nbsp;) ดีมาก &nbsp; (&nbsp;&nbsp;) ดี &nbsp; (&nbsp;&nbsp;) ปานกลาง &nbsp; (&nbsp;&nbsp;) น้อย &nbsp; (&nbsp;&nbsp;) ควรปรับปรุง</p>
+        <p style="font-weight:700">ข้อเสนอแนะ</p>
+        <p>...........................................................................................................</p>
+        <p>...........................................................................................................</p>
+      </div>
+    </div>`;
+}
+
 function formatApprovalStamp(d: Date) {
   return {
     dd: String(d.getDate()).padStart(2, "0"),
@@ -201,10 +273,12 @@ function buildPrintHtml(
   const approvedAt = parseApprovedAt(data.approvedAt) ?? new Date();
   const stamp = formatApprovalStamp(approvedAt);
   const officialDocNumber = esc(data.officialDocNumber ?? "");
+  const blankOfficeHeader =
+    "เลขที่ ......................&nbsp;&nbsp; วันที่ ........../........../..........&nbsp;&nbsp; เวลา ............. น.";
   const officeHeaderLine =
     isOfficial && officialDocNumber
       ? `เลขที่ ${officialDocNumber}&nbsp;&nbsp; วันที่ ${stamp.dd}/${stamp.mm}/${stamp.yyyyBE}&nbsp;&nbsp; เวลา ${stamp.hh}:${stamp.min} น.`
-      : "เลขที่ ......................&nbsp;&nbsp; วันที่ ........../........../..........&nbsp;&nbsp; เวลา ............. น.";
+      : blankOfficeHeader;
 
   const roomRows = rooms
     .filter((r) => r.enabled)
@@ -221,64 +295,15 @@ function buildPrintHtml(
 
   const { roomCoordinator, divisionChief, secretaryChief } = OFFICIAL_STAFF_SIGNATURES;
 
-  const rightColumnHtml = isOfficial
-    ? `
-    <div class="col-right">
-      <div class="office-box">
-        <div class="en">MEETING ROOM RESERVATION FORM</div>
-        <div>${officeHeaderLine}</div>
-      </div>
+  const rightHeaderLine = isOfficial ? officeHeaderLine : blankOfficeHeader;
+  const rightColumnHtml = buildRightColumnHtml(
+    rightHeaderLine,
+    isOfficial,
+    roomCoordinator,
+    divisionChief,
+    secretaryChief,
+  );
 
-      <div class="staff-block">
-        <p style="font-weight:700">เจ้าหน้าที่</p>
-        <p>เรียน&nbsp;&nbsp;หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด</p>
-        <div class="tab">
-          <div class="check-row"><span class="box">&nbsp;</span>ว่าง&nbsp;&nbsp;สามารถใช้งานได้</div>
-          <div class="check-row"><span class="box">&nbsp;</span>ไม่ว่าง&nbsp;&nbsp;เนื่องจาก...........................................................</div>
-        </div>
-        <p>เห็นควรมอบหมายให้...................................................................</p>
-        <p>เป็นผู้ดูแลห้องประชุม</p>
-        ${officialSignBlock(roomCoordinator.name, roomCoordinator.position)}
-      </div>
-
-      <div class="staff-block">
-        <p style="font-weight:700">ข้อพิจารณา</p>
-        <p style="font-size:10pt">ความเห็นหัวหน้าฝ่ายอำนวยการ</p>
-        <div class="thai-distribute-block">
-          <p class="thai-distributed-line">กําชับให้ผู้ใช้ห้องประชุมฯ ดูแลความสะอาดและรักษา</p>
-          <p class="thai-distributed-line">ทรัพย์สินร่วมกับเจ้าหน้าที่ประจําห้องประชุม เพื่อมิให้</p>
-          <p class="thai-distributed-plain">เกิดความเสียหายพร้อมทั้ง ปิดระบบไฟฟ้าและอุปกรณ์ทุกชนิดหลังเสร็จสิ้นการประชุม</p>
-        </div>
-        <p class="tab-2">จึงเรียนมาเพื่อโปรดพิจารณา</p>
-        ${officialSignBlock(divisionChief.name, divisionChief.position)}
-      </div>
-
-      <p style="border-top:0.5pt solid #000;padding-top:8pt;margin-top:12pt;font-weight:700">
-        การอนุมัติ (หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด)
-      </p>
-      <div class="tab">
-        <div class="check-row"><span class="box">&nbsp;</span>เห็นชอบ</div>
-        <div class="check-row"><span class="box">&nbsp;</span>ดำเนินการ</div>
-        <div class="check-row"><span class="box">&nbsp;</span>...............................................................................</div>
-      </div>
-      ${officialSignBlock(secretaryChief.name, secretaryChief.position)}
-
-      <div class="eval-box">
-        <p>ได้รับความร่วมมือตามเสนอเป็นที่เรียบร้อยแล้ว</p>
-        <br />
-        <br />
-        <p style="padding-left:11.5em">( ............................................ )</p>
-        <p style="padding-left:9em">วันที่......................................................</p>
-        <p style="font-weight:700">ประเมินความพึงพอใจในการขอรับบริการ</p>
-        <p>(&nbsp;&nbsp;) ดีมาก &nbsp; (&nbsp;&nbsp;) ดี &nbsp; (&nbsp;&nbsp;) ปานกลาง &nbsp; (&nbsp;&nbsp;) น้อย &nbsp; (&nbsp;&nbsp;) ควรปรับปรุง</p>
-        <p style="font-weight:700">ข้อเสนอแนะ</p>
-        <p>...........................................................................................................</p>
-        <p>...........................................................................................................</p>
-      </div>
-    </div>`
-    : "";
-
-  const sheetClass = isOfficial ? "sheet" : "sheet sheet-single";
 
   return `<!DOCTYPE html>
 <html lang="th">
@@ -340,14 +365,6 @@ function buildPrintHtml(
       width: 0;
       border-left: 0.5pt solid #000;
       pointer-events: none;
-    }
-    .sheet-single::before {
-      display: none;
-    }
-    .sheet-single .col-left {
-      width: 100%;
-      flex: 1 1 100%;
-      padding-right: 0;
     }
     .col-left {
       width: 50%;
@@ -458,7 +475,7 @@ function buildPrintHtml(
   </style>
 </head>
 <body>
-  <div class="${sheetClass}">
+  <div class="sheet">
     <div class="col-left">
       <div class="center">
         <div class="date-line" style="font-weight:700">หมายเลขติดตาม ${tracking}</div>

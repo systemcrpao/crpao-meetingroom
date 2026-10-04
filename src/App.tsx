@@ -17,6 +17,8 @@ import ManageReservations from "@/pages/ManageReservations";
 import ReportDashboard from "@/pages/ReportDashboard";
 import AdminPermissions from "@/pages/AdminPermissions";
 import AdminSatisfactionReport from "@/pages/AdminSatisfactionReport";
+import AdminSatisfactionResponseList from "@/pages/AdminSatisfactionResponseList";
+import AdminSatisfactionLayout from "@/layouts/AdminSatisfactionLayout";
 import AdminAnnouncements from "@/pages/AdminAnnouncements";
 import TrackingPage from "@/pages/TrackingPage";
 import RequestEditBookingPage from "@/pages/RequestEditBookingPage";
@@ -191,13 +193,16 @@ function AppRoutes() {
             <RequireAdmin>
               <RequireSuperAdmin>
                 <AppLayout>
-                  <AdminSatisfactionReport />
+                  <AdminSatisfactionLayout />
                 </AppLayout>
               </RequireSuperAdmin>
             </RequireAdmin>
           </RequireAuth>
         }
-      />
+      >
+        <Route index element={<AdminSatisfactionReport />} />
+        <Route path="responses" element={<AdminSatisfactionResponseList />} />
+      </Route>
       <Route
         path="/admin/permissions"
         element={

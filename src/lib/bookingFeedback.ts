@@ -265,6 +265,104 @@ export function surveyScoresToFirestore(scores: BookingSurveyScores): Record<str
   return out;
 }
 
+export type SurveyResponseStatus = "answered" | "not_answered";
+
+export interface SurveyResponseListItem {
+  reservationId: string;
+  trackingNumber: string;
+  meetingDate: Date | null;
+  room: string;
+  topic: string;
+  department: string;
+  bookerName: string;
+  reservationStatus: string;
+  surveyStatus: SurveyResponseStatus;
+  answeredAt: Date | null;
+}
+
+export function reservationMeetingDate(r: { date?: string }): Date | null {
+  if (!r.date) return null;
+  const d = new Date(r.date);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** กรองการจองตามวันใช้ห้อง (ไม่รวมที่ถูกปฏิเสธ) */
+export function filterReservationsByMeetingPeriod<T extends { date?: string; status?: string }>(
+  rows: T[],
+  viewMode: "month" | "year",
+  year: number,
+  month: number,
+): T[] {
+  return rows.filter((r) => {
+    if (r.status === "rejected") return false;
+    const d = reservationMeetingDate(r);
+    if (!d) return false;
+    if (viewMode === "month") {
+      return d.getFullYear() === year && d.getMonth() === month;
+    }
+    return d.getFullYear() === year;
+  });
+}
+
+export function indexFeedbackByTracking(rows: BookingFeedbackRow[]): Map<string, BookingFeedbackRow> {
+  const map = new Map<string, BookingFeedbackRow>();
+  for (const row of rows) {
+    const code = String(row.trackingNumber ?? "").trim().toUpperCase();
+    if (!code) continue;
+    const existing = map.get(code);
+    const rowDate = parseFeedbackCreatedAt(row);
+    if (!existing) {
+      map.set(code, row);
+      continue;
+    }
+    const existingDate = parseFeedbackCreatedAt(existing);
+    if (rowDate && (!existingDate || rowDate > existingDate)) {
+      map.set(code, row);
+    }
+  }
+  return map;
+}
+
+export function buildSurveyResponseListItems(
+  reservations: {
+    id: string;
+    trackingNumber?: string;
+    date?: string;
+    room?: string;
+    topic?: string;
+    department?: string;
+    bookerName?: string;
+    status?: string;
+  }[],
+  feedbackByTracking: Map<string, BookingFeedbackRow>,
+): SurveyResponseListItem[] {
+  const items = reservations.map((r) => {
+    const code = String(r.trackingNumber ?? "").trim().toUpperCase();
+    const fb = code ? feedbackByTracking.get(code) : undefined;
+    return {
+      reservationId: r.id,
+      trackingNumber: code || "—",
+      meetingDate: reservationMeetingDate(r),
+      room: String(r.room ?? ""),
+      topic: String(r.topic ?? ""),
+      department: String(r.department ?? ""),
+      bookerName: String(r.bookerName ?? ""),
+      reservationStatus: String(r.status ?? ""),
+      surveyStatus: (fb ? "answered" : "not_answered") as SurveyResponseStatus,
+      answeredAt: fb ? parseFeedbackCreatedAt(fb) : null,
+    };
+  });
+
+  items.sort((a, b) => {
+    const ta = a.meetingDate?.getTime() ?? 0;
+    const tb = b.meetingDate?.getTime() ?? 0;
+    if (tb !== ta) return tb - ta;
+    return a.trackingNumber.localeCompare(b.trackingNumber, "th");
+  });
+
+  return items;
+}
+
 /** มีแบบประเมินหลังจอง (สำหรับแสดงตราประทับบนแบบพิมพ์เจ้าหน้าที่) */
 export async function hasBookingFeedbackForTracking(trackingNumber: string): Promise<boolean> {
   const code = trackingNumber.trim().toUpperCase();

@@ -128,7 +128,7 @@ export function AppSidebar() {
                       <SidebarMenuButton asChild>
                         <NavLink
                           to={item.url}
-                          end
+                          end={item.url !== "/admin/satisfaction"}
                           className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent"
                           activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
                         >

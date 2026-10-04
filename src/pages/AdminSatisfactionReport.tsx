@@ -66,10 +66,8 @@ export default function AdminSatisfactionReport() {
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">สรุปความพึงพอใจ</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            แบบประเมิน 5 ข้อ 3 ด้าน — สำหรับ Super Admin เสนอผู้บริหาร
-          </p>
+          <h2 className="text-lg font-semibold">คะแนนและสถิติ</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">สรุปคะแนนเฉลี่ยและการกระจายคะแนนรายข้อ</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-md border overflow-hidden">

@@ -9,6 +9,7 @@ import {
   DoorOpen,
   Printer,
   SmilePlus,
+  Megaphone,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -38,6 +39,7 @@ const adminToolNavItems = [
 ];
 
 const superAdminNavItems = [
+  { title: "ประกาศ", url: "/admin/announcements", icon: Megaphone },
   { title: "สรุปความพึงพอใจ", url: "/admin/satisfaction", icon: SmilePlus },
   { title: "จัดการห้องประชุม", url: "/admin/rooms", icon: DoorOpen },
   { title: "กำหนดสิทธิ์ Admin", url: "/admin/permissions", icon: Shield },

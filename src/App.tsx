@@ -17,6 +17,7 @@ import ManageReservations from "@/pages/ManageReservations";
 import ReportDashboard from "@/pages/ReportDashboard";
 import AdminPermissions from "@/pages/AdminPermissions";
 import AdminSatisfactionReport from "@/pages/AdminSatisfactionReport";
+import AdminAnnouncements from "@/pages/AdminAnnouncements";
 import TrackingPage from "@/pages/TrackingPage";
 import RequestEditBookingPage from "@/pages/RequestEditBookingPage";
 import NotFound from "./pages/NotFound";
@@ -165,6 +166,20 @@ function AppRoutes() {
               <AppLayout>
                 <AdminPrintDocuments />
               </AppLayout>
+            </RequireAdmin>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/announcements"
+        element={
+          <RequireAuth>
+            <RequireAdmin>
+              <RequireSuperAdmin>
+                <AppLayout>
+                  <AdminAnnouncements />
+                </AppLayout>
+              </RequireSuperAdmin>
             </RequireAdmin>
           </RequireAuth>
         }

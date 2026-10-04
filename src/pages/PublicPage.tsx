@@ -31,6 +31,13 @@ import { roomSolidColorClass } from "@/lib/meetingRooms";
 import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
+import {
+  ANNOUNCEMENTS_COLLECTION,
+  pickActiveAnnouncementForPublic,
+  shouldShowPublicAnnouncement,
+  type Announcement,
+} from "@/lib/announcements";
+import { PublicAnnouncementDialog } from "@/components/announcements/PublicAnnouncementDialog";
 
 import ReservationForm from "@/pages/ReservationForm";
 import { Button } from "@/components/ui/button";
@@ -77,6 +84,8 @@ export default function PublicPage() {
   const [roomFilter, setRoomFilter]     = useState("all");
   const [pageLayout, setPageLayout] = useState<BookingPageLayout>(loadBookingPageLayout);
   const [layoutBarExpanded, setLayoutBarExpanded] = useState(() => !loadLayoutBarHidden());
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [announcementOpen, setAnnouncementOpen] = useState(false);
 
   const setLayoutBarExpandedAnimated = (expanded: boolean) => {
     setLayoutBarExpanded(expanded);
@@ -117,6 +126,22 @@ export default function PublicPage() {
   const showCalendar = pageLayout === "both" || pageLayout === "calendar";
   const showForm = pageLayout === "both" || pageLayout === "form";
   const { activeRooms, allRooms } = useMeetingRooms();
+
+  const activeAnnouncement = useMemo(
+    () => pickActiveAnnouncementForPublic(announcements),
+    [announcements],
+  );
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, ANNOUNCEMENTS_COLLECTION), (snap) => {
+      setAnnouncements(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Announcement));
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    setAnnouncementOpen(shouldShowPublicAnnouncement(activeAnnouncement));
+  }, [activeAnnouncement]);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "reservations"), (snap) => {
@@ -642,6 +667,12 @@ export default function PublicPage() {
       </div>
       )}
     </div>
+
+      <PublicAnnouncementDialog
+        announcement={activeAnnouncement}
+        open={announcementOpen}
+        onOpenChange={setAnnouncementOpen}
+      />
     </div>
   );
 }

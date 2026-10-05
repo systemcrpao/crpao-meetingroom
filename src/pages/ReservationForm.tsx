@@ -823,7 +823,7 @@ export default function ReservationForm() {
               disabled={isSubmitting}
             >
               <Printer className="mr-2 h-4 w-4" />
-              {isSubmitting ? "กำลังบันทึกข้อมูล..." : "บันทึกและพิมพ์แบบฟอร์ม"}
+              {isSubmitting ? "กำลังบันทึกข้อมูล..." : "บันทึกการจอง"}
             </Button>
           </form>
         </CardContent>

@@ -33,31 +33,10 @@ export function ContactSupportDialog({ triggerClassName, showLabel = true }: Pro
         <DialogHeader>
           <DialogTitle>ช่องทางติดต่อ</DialogTitle>
           <DialogDescription>
-            เลือกช่องทางตามประเภทปัญหา — เจ้าหน้าที่จะช่วยเหลือในเวลาราชการ
+            เลือกช่องทางตามประเภทปัญหา
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 text-sm">
-          <section className="rounded-lg border p-4 space-y-2">
-            <div className="flex items-start gap-2 font-semibold text-foreground">
-              <Wrench className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
-              แก้ไขปัญหาทางเทคนิค (ระบบจองออนไลน์)
-            </div>
-            <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-              <li>เข้าใช้งานไม่ได้ / หน้าจอ error / ลืมรหัสผ่านผู้ดูแล</li>
-              <li>แจ้งปัญหาการใช้งานเว็บไซต์และระบบจองห้องประชุม</li>
-            </ul>
-            <p className="flex items-center gap-2 pt-1">
-              <Phone className="h-3.5 w-3.5 shrink-0" />
-              <span>
-                หน่วยเทคโนโลยีดิจิทัล อบจ.เชียงราย — โทรศัพท์ภายใน{" "}
-                <a href="tel:0537113503" className="font-medium text-primary underline-offset-2 hover:underline">
-                  3503
-                </a>{" "}
-                (สายตรงสำนักปลัด)
-              </span>
-            </p>
-          </section>
-
           <section className="rounded-lg border p-4 space-y-2">
             <div className="flex items-start gap-2 font-semibold text-foreground">
               <Building2 className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
@@ -65,12 +44,34 @@ export function ContactSupportDialog({ triggerClassName, showLabel = true }: Pro
             </div>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
               <li>ความพร้อมของห้อง อุปกรณ์ ไมค์ โปรเจคเตอร์</li>
-              <li>เปลี่ยนแปลงการจอง / สอบถามสถานะการอนุมัติ (มีหมายเลขติดตาม)</li>
+              <li>เปลี่ยนแปลงการจอง</li>
+              <li>สอบถามสถานะการอนุมัติ (มีหมายเลขติดตาม)</li>
             </ul>
             <p className="flex items-center gap-2 pt-1">
               <Phone className="h-3.5 w-3.5 shrink-0" />
               <span>
-                สำนักปลัด องค์การบริหารส่วนจังหวัดเชียงราย — โทรศัพท์ภายใน{" "}
+                สำนักปลัดฯ — โทรศัพท์ภายใน{" "}
+                <a href="tel:0537113503" className="font-medium text-primary underline-offset-2 hover:underline">
+                  3503
+                </a>
+              </span>
+            </p>
+          </section>
+          <section className="rounded-lg border p-4 space-y-2">
+            <div className="flex items-start gap-2 font-semibold text-foreground">
+              <Wrench className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+              แก้ไขปัญหาทางเทคนิค (ระบบจองออนไลน์)
+            </div>
+            <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+              <li>เข้าใช้งานไม่ได้ / หน้าจอ error</li>
+              <li>ลืมรหัสผ่านผู้ดูแล</li>
+              <li>แจ้งปัญหาการใช้งานเว็บไซต์และระบบจองห้องประชุม</li>
+            </ul>
+            <p className="flex items-center gap-2 pt-1">
+              <Phone className="h-3.5 w-3.5 shrink-0" />
+              <span>
+                งานส่งเสริมและพัฒนาเทคโนโลยีสารสนเทศ <br />
+                สำนักปลัดฯ — โทรศัพท์ภายใน{" "}
                 <a href="tel:0537113503" className="font-medium text-primary underline-offset-2 hover:underline">
                   3503
                 </a>

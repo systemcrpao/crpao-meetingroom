@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, ImageDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SURVEY_SECTIONS,
@@ -12,7 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 export type { BookingSurveyScores };
 
 type Props = {
-  phase: "loading" | "survey" | null;
+  phase: "loading" | "tracking" | "survey" | null;
+  trackingNumber?: string;
+  onSaveTrackingImage?: () => void;
+  trackingImageSaving?: boolean;
+  onTrackingConfirm?: () => void;
   scores: BookingSurveyScores;
   onScoreChange: (key: ScoreKey, value: number) => void;
   suggestion: string;
@@ -63,6 +67,10 @@ function ScoreRow({
 
 export function BookingSubmitOverlay({
   phase,
+  trackingNumber,
+  onSaveTrackingImage,
+  trackingImageSaving,
+  onTrackingConfirm,
   scores,
   onScoreChange,
   suggestion,
@@ -93,6 +101,45 @@ export function BookingSubmitOverlay({
             <p className="text-sm text-muted-foreground mt-1">กรุณารอสักครู่ ระบบกำลังบันทึกข้อมูลการจอง</p>
           </div>
         </div>
+      )}
+
+      {phase === "tracking" && trackingNumber && (
+        <Card className="w-full max-w-md shadow-xl border animate-in zoom-in-95 fade-in duration-300">
+          <CardHeader className="text-center pb-2">
+            <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+              <CheckCircle2 className="h-8 w-8" />
+            </div>
+            <CardTitle className="text-lg">บันทึกการจองสำเร็จ</CardTitle>
+            <CardDescription className="text-sm leading-relaxed">
+              กรุณาบันทึกหมายเลขติดตามไว้เพื่อตรวจสอบสถานะการจอง
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5 pb-6">
+            <div className="rounded-lg border bg-muted/30 px-4 py-5 text-center">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                หมายเลขติดตาม
+              </p>
+              <p className="mt-2 text-3xl font-bold font-mono tracking-[0.25em] text-primary tabular-nums">
+                {trackingNumber}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full gap-2 border-emerald-200 text-emerald-800 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-200"
+                onClick={onSaveTrackingImage}
+                disabled={trackingImageSaving}
+              >
+                <ImageDown className="h-4 w-4" />
+                {trackingImageSaving ? "กำลังบันทึกรูป..." : "บันทึกรูปภาพ"}
+              </Button>
+              <Button type="button" className="w-full" onClick={onTrackingConfirm}>
+                ตกลง
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {phase === "survey" && (

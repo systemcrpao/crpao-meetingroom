@@ -208,3 +208,32 @@ export function docToMeetingRoom(id: string, data: MeetingRoomDoc): MeetingRoom 
 export function sortMeetingRooms(list: MeetingRoom[]): MeetingRoom[] {
   return [...list].sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label, "th"));
 }
+
+/**
+ * รวมเอกสารซ้ำที่ชื่อห้อง (value) เดียวกัน — ใช้ doc ที่ id ตรงกับ value เป็นหลัก
+ * (กรณีบันทึกครั้งก่อนสร้าง doc ใหม่แต่ไม่ลบ doc เก่า)
+ */
+export function dedupeMeetingRoomsByValue(list: MeetingRoom[]): MeetingRoom[] {
+  const byValue = new Map<string, MeetingRoom[]>();
+  for (const room of list) {
+    const key = room.value.trim();
+    if (!key) continue;
+    const group = byValue.get(key) ?? [];
+    group.push(room);
+    byValue.set(key, group);
+  }
+
+  const merged: MeetingRoom[] = [];
+  for (const group of byValue.values()) {
+    if (group.length === 1) {
+      merged.push(group[0]);
+      continue;
+    }
+    const canonicalId = meetingRoomDocId(group[0].value);
+    const picked =
+      group.find((r) => r.id === canonicalId) ??
+      group.slice().sort((a, b) => b.sortOrder - a.sortOrder || a.id.localeCompare(b.id))[0];
+    merged.push(picked);
+  }
+  return sortMeetingRooms(merged);
+}

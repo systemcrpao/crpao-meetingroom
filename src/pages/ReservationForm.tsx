@@ -102,7 +102,10 @@ export default function ReservationForm() {
   const [bookerPosition, setBookerPosition] = useState("");
   const [bookerPhone, setBookerPhone] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [postSubmitPhase, setPostSubmitPhase] = useState<"loading" | "survey" | null>(null);
+  const [postSubmitPhase, setPostSubmitPhase] = useState<"loading" | "tracking" | "survey" | null>(
+    null,
+  );
+  const [trackingImageSaving, setTrackingImageSaving] = useState(false);
   const [surveyScores, setSurveyScores] = useState<BookingSurveyScores>({ ...EMPTY_SURVEY_SCORES });
   const [surveySuggestion, setSurveySuggestion] = useState("");
   const [feedbackSaving, setFeedbackSaving] = useState(false);
@@ -350,7 +353,7 @@ export default function ReservationForm() {
 
       setSurveyScores({ ...EMPTY_SURVEY_SCORES });
       setSurveySuggestion("");
-      setPostSubmitPhase("survey");
+      setPostSubmitPhase("tracking");
     } catch (error) {
       console.error("Error saving reservation:", error);
       setPostSubmitPhase(null);
@@ -401,8 +404,9 @@ export default function ReservationForm() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSaveBookingImage = async () => {
+  const handleSaveBookingImage = async (options?: { fromOverlay?: boolean }) => {
     if (!savedFormData || !savedTrackingNumber) return;
+    if (options?.fromOverlay) setTrackingImageSaving(true);
     try {
       await downloadBookingCardPng({
         trackingNumber: savedTrackingNumber,
@@ -421,7 +425,13 @@ export default function ReservationForm() {
         description: "กรุณาลองใหม่อีกครั้ง",
         variant: "destructive",
       });
+    } finally {
+      if (options?.fromOverlay) setTrackingImageSaving(false);
     }
+  };
+
+  const handleTrackingConfirm = () => {
+    setPostSubmitPhase("survey");
   };
 
   const handleNewBooking = () => {
@@ -511,7 +521,7 @@ export default function ReservationForm() {
               <Button
                 variant="outline"
                 className="w-full gap-2 border-emerald-200 text-emerald-800 hover:bg-emerald-50"
-                onClick={handleSaveBookingImage}
+                onClick={() => handleSaveBookingImage()}
               >
                 <ImageDown className="h-4 w-4" />
                 บันทึกรูปภาพ (PNG)
@@ -867,6 +877,10 @@ export default function ReservationForm() {
 
       <BookingSubmitOverlay
         phase={postSubmitPhase}
+        trackingNumber={savedTrackingNumber}
+        onSaveTrackingImage={() => handleSaveBookingImage({ fromOverlay: true })}
+        trackingImageSaving={trackingImageSaving}
+        onTrackingConfirm={handleTrackingConfirm}
         scores={surveyScores}
         onScoreChange={(key, value) => setSurveyScores((prev) => ({ ...prev, [key]: value }))}
         suggestion={surveySuggestion}

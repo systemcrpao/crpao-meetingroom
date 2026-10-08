@@ -4,6 +4,7 @@ import { db } from "@/lib/firebase";
 import {
   DEFAULT_MEETING_ROOMS,
   MEETING_ROOMS_COLLECTION,
+  dedupeMeetingRoomsByValue,
   docToMeetingRoom,
   sortMeetingRooms,
   type MeetingRoom,
@@ -38,7 +39,7 @@ export function MeetingRoomsProvider({ children }: { children: React.ReactNode }
         const list = snap.docs.map((d) =>
           docToMeetingRoom(d.id, d.data() as MeetingRoomDoc),
         );
-        setFirestoreRooms(sortMeetingRooms(list));
+        setFirestoreRooms(dedupeMeetingRoomsByValue(list));
         setLoading(false);
       },
       () => {

@@ -7,6 +7,7 @@ import {
   DEFAULT_MEETING_ROOMS,
   MEETING_ROOMS_COLLECTION,
   ROOM_COLOR_OPTIONS,
+  dedupeMeetingRoomsByValue,
   meetingRoomDocId,
   roomSolidColorClass,
   sortMeetingRooms,
@@ -43,7 +44,7 @@ export default function AdminManageRooms() {
   const [newColor, setNewColor] = useState<RoomColorKey>("teal");
 
   useEffect(() => {
-    if (!loading) setRows(sortMeetingRooms(allRooms));
+    if (!loading) setRows(dedupeMeetingRoomsByValue(allRooms));
   }, [allRooms, loading]);
 
   const nextSortOrder = useMemo(
@@ -89,9 +90,10 @@ export default function AdminManageRooms() {
     }
     setSavingId(row.id);
     try {
-      const id = meetingRoomDocId(value);
-      await setDoc(
-        doc(db, MEETING_ROOMS_COLLECTION, id),
+      const targetId = meetingRoomDocId(value);
+      const batch = writeBatch(db);
+      batch.set(
+        doc(db, MEETING_ROOMS_COLLECTION, targetId),
         {
           value,
           label,
@@ -102,6 +104,19 @@ export default function AdminManageRooms() {
         },
         { merge: true },
       );
+
+      const staleIds = new Set<string>();
+      if (row.id !== targetId) staleIds.add(row.id);
+      for (const other of allRooms) {
+        if (other.value.trim() === value && other.id !== targetId) {
+          staleIds.add(other.id);
+        }
+      }
+      for (const staleId of staleIds) {
+        batch.delete(doc(db, MEETING_ROOMS_COLLECTION, staleId));
+      }
+
+      await batch.commit();
       toast({ title: "บันทึกห้องแล้ว", description: value });
     } catch (e) {
       console.error(e);

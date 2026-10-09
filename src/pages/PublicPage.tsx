@@ -2,7 +2,7 @@
 import {
   format, addMonths, addDays,
   startOfMonth, endOfMonth, eachDayOfInterval,
-  startOfWeek, getDay, isSameDay, isSameMonth,
+  startOfWeek, getDay, isSameDay, isSameMonth, startOfDay, isBefore,
 } from "date-fns";
 import { th } from "date-fns/locale";
 import {
@@ -134,6 +134,8 @@ export default function PublicPage() {
     [selectedDay, getHolidaysForDay],
   );
 
+  const calendarToday = startOfDay(new Date());
+
   return (
     <div className="flex flex-col min-h-full">
     <div
@@ -256,6 +258,8 @@ export default function PublicPage() {
                       const isHoliday  = dayHolidays.length > 0;
                       const bookingCap = monthBookingCap(dayHolidays);
                       const isToday    = isSameDay(day, new Date());
+                      const isPast     =
+                        !isToday && isBefore(startOfDay(day), calendarToday);
                       const isSelected = !!selectedDay && isSameDay(day, selectedDay);
                       const inMonth    = isSameMonth(day, monthDate);
                       const isSun      = getDay(day) === 0;
@@ -268,6 +272,7 @@ export default function PublicPage() {
                             "border-r border-b p-0.5 sm:p-1 flex flex-col gap-0.5 min-h-[2.75rem] sm:min-h-0 sm:aspect-square overflow-hidden",
                             "cursor-pointer transition-colors select-none",
                             !inMonth && "opacity-40 bg-muted/20",
+                            isPast && !isSelected && "opacity-[0.38] saturate-[0.75] bg-muted/15",
                             isToday && !isSelected && "bg-primary/5",
                             isSelected && "bg-primary/15 ring-1 ring-inset ring-primary",
                             calendarHolidayCellClasses(isHoliday, isSelected),
@@ -344,6 +349,8 @@ export default function PublicPage() {
                       const dayHolidays = getHolidaysForDay(day);
                       const isHoliday  = dayHolidays.length > 0;
                       const isToday    = isSameDay(day, new Date());
+                      const isPast     =
+                        !isToday && isBefore(startOfDay(day), calendarToday);
                       const isSelected = !!selectedDay && isSameDay(day, selectedDay);
                       const isSun      = getDay(day) === 0;
                       const isSat      = getDay(day) === 6;
@@ -354,6 +361,7 @@ export default function PublicPage() {
                           className={cn(
                             "flex items-start gap-1.5 rounded-lg border px-2 py-1.5",
                             "cursor-pointer transition-colors select-none",
+                            isPast && !isSelected && "opacity-[0.38] saturate-[0.75] bg-muted/15",
                             isToday && !isSelected && "border-primary/40 bg-primary/5",
                             isSelected && "border-primary bg-primary/10",
                             isHoliday && !isSelected && "border-rose-200/80 bg-rose-50/40 dark:border-rose-900 dark:bg-rose-950/20",

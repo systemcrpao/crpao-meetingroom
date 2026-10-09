@@ -30,14 +30,13 @@ export function BookingLayoutSwitcher({ className }: { className?: string }) {
               variant={active ? "default" : "ghost"}
               size="sm"
               className={cn(
-                "rounded-none h-8 sm:h-9 flex-1 min-w-0 px-1.5 sm:px-2.5 text-[11px] sm:text-xs gap-1",
+                "rounded-none h-9 flex-1 min-w-0 px-2 sm:px-3 text-xs gap-1.5",
                 i > 0 && "border-l",
               )}
               onClick={() => setPageLayout(opt.id)}
             >
               <Icon className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate hidden min-[380px]:inline">{opt.label}</span>
-              <span className="truncate min-[380px]:hidden">{opt.short}</span>
+              <span className="truncate">{opt.label}</span>
             </Button>
           );
         })}

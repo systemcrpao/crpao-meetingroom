@@ -50,6 +50,15 @@ import {
 const ROOM_THAMMARAP_ARUN = "ธรรมรับอรุณ";
 const BOOKING_LOADING_MIN_MS = 900;
 
+function RequiredMark() {
+  return (
+    <span className="text-red-600 font-semibold" aria-hidden="true">
+      {" "}
+      *
+    </span>
+  );
+}
+
 // Generate unique 5-character tracking number (uppercase + digits, no ambiguous chars)
 const TRACKING_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid confusion
 function generateTrackingNumber(): string {
@@ -576,6 +585,7 @@ export default function ReservationForm() {
             <div className="space-y-1.5">
               <Label className="text-xs font-medium flex items-center gap-1.5">
                 <Building2 className="h-3.5 w-3.5 text-indigo-400" /> สังกัด / หน่วยงาน
+                <RequiredMark />
               </Label>
               <Select
                 value={department}
@@ -605,6 +615,7 @@ export default function ReservationForm() {
             <div className="space-y-1.5">
               <Label className="text-xs font-medium flex items-center gap-1.5">
                 <BookOpen className="h-3.5 w-3.5 text-indigo-400" /> เรื่อง / ชื่อโครงการ
+                <RequiredMark />
               </Label>
               <Input className="h-9 text-sm" placeholder="ระบุหัวข้อการประชุม" value={topic} onChange={(e) => setTopic(e.target.value)} />
             </div>
@@ -637,6 +648,7 @@ export default function ReservationForm() {
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium flex items-center gap-1.5">
                   <CalendarIcon className="h-3.5 w-3.5 text-emerald-500" /> วันที่ประชุม
+                  <RequiredMark />
                 </Label>
                 <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                   <PopoverTrigger asChild>
@@ -666,6 +678,7 @@ export default function ReservationForm() {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium flex items-center gap-1.5">
                     <CalendarIcon className="h-3.5 w-3.5 text-emerald-500" /> วันที่เริ่มต้น
+                    <RequiredMark />
                   </Label>
                   <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                     <PopoverTrigger asChild>
@@ -693,6 +706,7 @@ export default function ReservationForm() {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium flex items-center gap-1.5">
                     <CalendarIcon className="h-3.5 w-3.5 text-emerald-500" /> วันที่สิ้นสุด
+                    <RequiredMark />
                   </Label>
                   <Popover open={endCalendarOpen} onOpenChange={setEndCalendarOpen}>
                     <PopoverTrigger asChild>
@@ -725,6 +739,7 @@ export default function ReservationForm() {
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium flex items-center gap-1.5">
                   <Clock3 className="h-3.5 w-3.5 text-emerald-500" /> เวลาเริ่ม
+                  <RequiredMark />
                 </Label>
                 <Select value={startTime} onValueChange={(v) => { setStartTime(v); if (endTime && endTime <= v) setEndTime(""); }}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="เลือกเวลา" /></SelectTrigger>
@@ -738,6 +753,7 @@ export default function ReservationForm() {
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium flex items-center gap-1.5">
                   <Clock3 className="h-3.5 w-3.5 text-emerald-500" /> เวลาสิ้นสุด
+                  <RequiredMark />
                 </Label>
                 <Select value={endTime} onValueChange={setEndTime}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="เลือกเวลา" /></SelectTrigger>
@@ -762,6 +778,7 @@ export default function ReservationForm() {
             <div className="space-y-1.5">
               <Label className="text-xs font-medium flex items-center gap-1.5">
                 <DoorOpen className="h-3.5 w-3.5 text-orange-500" /> ห้องประชุม
+                <RequiredMark />
               </Label>
               <Select value={room} onValueChange={handleRoomChange}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="เลือกห้องประชุม" /></SelectTrigger>
@@ -777,6 +794,7 @@ export default function ReservationForm() {
             <div className="space-y-1.5">
               <Label className="text-xs font-medium flex items-center gap-1.5">
                 <Users className="h-3.5 w-3.5 text-orange-500" /> จำนวนผู้เข้าร่วม (คน)
+                <RequiredMark />
               </Label>
               <Input className="h-9 text-sm" placeholder="ระบุจำนวนผู้เข้าร่วม" value={participants} onChange={(e) => setParticipants(e.target.value.replace(/\D/g, ''))} inputMode="numeric" />
             </div>
@@ -811,17 +829,24 @@ export default function ReservationForm() {
             <div className="space-y-1.5">
               <Label className="text-xs font-medium flex items-center gap-1.5">
                 <UserCircle2 className="h-3.5 w-3.5 text-pink-500" /> ชื่อผู้จอง
+                <RequiredMark />
               </Label>
               <Input className="h-9 text-sm" placeholder="ระบุชื่อ-นามสกุล ผู้จอง" value={bookerName} onChange={(e) => setBookerName(e.target.value)} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium">ตำแหน่ง</Label>
+                <Label className="text-xs font-medium">
+                  ตำแหน่ง
+                  <RequiredMark />
+                </Label>
                 <Input className="h-9 text-sm" placeholder="เช่น นักวิชาการ" value={bookerPosition} onChange={(e) => setBookerPosition(e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium">เบอร์โทรศัพท์</Label>
+                <Label className="text-xs font-medium">
+                  เบอร์โทรศัพท์
+                  <RequiredMark />
+                </Label>
                 <Input className="h-9 text-sm" placeholder="08x-xxx-xxxx" value={bookerPhone} onChange={(e) => setBookerPhone(e.target.value.replace(/\D/g, ''))} inputMode="tel" />
               </div>
             </div>

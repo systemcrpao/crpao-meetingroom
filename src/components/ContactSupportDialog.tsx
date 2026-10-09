@@ -12,9 +12,25 @@ import {
 type Props = {
   triggerClassName?: string;
   showLabel?: boolean;
+  /** แสดงเฉพาะไอคอนจนกว่าจะถึง breakpoint นี้ (เช่น lg บนแท็บเล็ต) */
+  compactUntil?: "sm" | "md" | "lg";
 };
 
-export function ContactSupportDialog({ triggerClassName, showLabel = true }: Props) {
+export function ContactSupportDialog({
+  triggerClassName,
+  showLabel = true,
+  compactUntil,
+}: Props) {
+  const labelClass =
+    !showLabel
+      ? "hidden"
+      : compactUntil === "lg"
+        ? "hidden lg:inline"
+        : compactUntil === "md"
+          ? "hidden md:inline"
+          : compactUntil === "sm"
+            ? "hidden sm:inline"
+            : "hidden sm:inline";
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -26,7 +42,7 @@ export function ContactSupportDialog({ triggerClassName, showLabel = true }: Pro
           title="ช่องทางติดต่อ"
         >
           <Headphones className="h-3.5 w-3.5 shrink-0" />
-          {showLabel && <span className="hidden sm:inline">ติดต่อ</span>}
+          {showLabel && <span className={labelClass}>ติดต่อ</span>}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">

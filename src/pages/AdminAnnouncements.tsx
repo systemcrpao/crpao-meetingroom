@@ -8,6 +8,9 @@ import {
   sortAnnouncementsNewestFirst,
   type Announcement,
 } from "@/lib/announcements";
+import { announcementContentPlainText, sanitizeAnnouncementHtml } from "@/lib/announcementHtml";
+import { AnnouncementAuthorFields } from "@/components/announcements/AnnouncementAuthorFields";
+import { AnnouncementRichEditor } from "@/components/announcements/AnnouncementRichEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -26,7 +29,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -63,11 +65,15 @@ export default function AdminAnnouncements() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [publishActive, setPublishActive] = useState(true);
+  const [useDefaultAuthor, setUseDefaultAuthor] = useState(true);
+  const [customAuthorName, setCustomAuthorName] = useState("");
   const [creating, setCreating] = useState(false);
 
   const [editTarget, setEditTarget] = useState<Announcement | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [editUseDefaultAuthor, setEditUseDefaultAuthor] = useState(true);
+  const [editCustomAuthorName, setEditCustomAuthorName] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
@@ -80,17 +86,32 @@ export default function AdminAnnouncements() {
     return () => unsub();
   }, []);
 
-  const authorName = useMemo(() => {
+  const defaultAuthorName = useMemo(() => {
     if (user?.displayName?.trim()) return user.displayName.trim();
     if (user?.email) return user.email.split("@")[0];
     return "Super Admin";
   }, [user]);
 
+  const resolveAuthorName = (useDefault: boolean, custom: string) => {
+    if (useDefault) return defaultAuthorName;
+    const name = custom.trim();
+    if (!name) {
+      return null;
+    }
+    return name;
+  };
+
   const handleCreate = async () => {
     const t = title.trim();
-    const c = content.trim();
-    if (!t || !c) {
+    const c = sanitizeAnnouncementHtml(content);
+    const plain = announcementContentPlainText(c);
+    const finalAuthor = resolveAuthorName(useDefaultAuthor, customAuthorName);
+    if (!t || !plain) {
       toast({ title: "กรุณากรอกหัวข้อและเนื้อหา", variant: "destructive" });
+      return;
+    }
+    if (!finalAuthor) {
+      toast({ title: "กรุณากรอกชื่อผู้ประกาศ", variant: "destructive" });
       return;
     }
     setCreating(true);
@@ -103,12 +124,14 @@ export default function AdminAnnouncements() {
         content: c,
         isActive: publishActive,
         authorEmail: user?.email ?? "",
-        authorName,
+        authorName: finalAuthor,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
       setTitle("");
       setContent("");
+      setUseDefaultAuthor(true);
+      setCustomAuthorName("");
       setPublishActive(true);
       toast({ title: "บันทึกประกาศแล้ว" });
     } catch (e) {
@@ -158,14 +181,24 @@ export default function AdminAnnouncements() {
     setEditTarget(row);
     setEditTitle(row.title ?? "");
     setEditContent(row.content ?? "");
+    const stored = (row.authorName ?? "").trim();
+    const matchesDefault = !stored || stored === defaultAuthorName;
+    setEditUseDefaultAuthor(matchesDefault);
+    setEditCustomAuthorName(matchesDefault ? "" : stored);
   };
 
   const handleSaveEdit = async () => {
     if (!editTarget) return;
     const t = editTitle.trim();
-    const c = editContent.trim();
-    if (!t || !c) {
+    const c = sanitizeAnnouncementHtml(editContent);
+    const plain = announcementContentPlainText(c);
+    const finalAuthor = resolveAuthorName(editUseDefaultAuthor, editCustomAuthorName);
+    if (!t || !plain) {
       toast({ title: "กรุณากรอกหัวข้อและเนื้อหา", variant: "destructive" });
+      return;
+    }
+    if (!finalAuthor) {
+      toast({ title: "กรุณากรอกชื่อผู้ประกาศ", variant: "destructive" });
       return;
     }
     setSavingEdit(true);
@@ -173,6 +206,7 @@ export default function AdminAnnouncements() {
       await updateDoc(doc(db, ANNOUNCEMENTS_COLLECTION, editTarget.id), {
         title: t,
         content: c,
+        authorName: finalAuthor,
         updatedAt: serverTimestamp(),
       });
       setEditTarget(null);
@@ -223,16 +257,19 @@ export default function AdminAnnouncements() {
               placeholder="หัวข้อประกาศ"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="ann-content">เนื้อหา</Label>
-            <Textarea
-              id="ann-content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="รายละเอียดประกาศ"
-              className="min-h-[120px] resize-y"
-            />
-          </div>
+          <AnnouncementRichEditor
+            id="ann-content"
+            value={content}
+            onChange={setContent}
+            minHeightClass="min-h-[140px]"
+          />
+          <AnnouncementAuthorFields
+            useDefaultAuthor={useDefaultAuthor}
+            onUseDefaultAuthorChange={setUseDefaultAuthor}
+            defaultAuthorLabel={defaultAuthorName}
+            customAuthorName={customAuthorName}
+            onCustomAuthorNameChange={setCustomAuthorName}
+          />
           <div className="flex items-center justify-between rounded-lg border px-3 py-2">
             <div>
               <p className="text-sm font-medium">เปิดแสดงทันที</p>
@@ -325,14 +362,18 @@ export default function AdminAnnouncements() {
               <Label>หัวข้อ</Label>
               <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
             </div>
-            <div className="space-y-2">
-              <Label>เนื้อหา</Label>
-              <Textarea
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                className="min-h-[140px]"
-              />
-            </div>
+            <AnnouncementRichEditor
+              value={editContent}
+              onChange={setEditContent}
+              minHeightClass="min-h-[160px]"
+            />
+            <AnnouncementAuthorFields
+              useDefaultAuthor={editUseDefaultAuthor}
+              onUseDefaultAuthorChange={setEditUseDefaultAuthor}
+              defaultAuthorLabel={defaultAuthorName}
+              customAuthorName={editCustomAuthorName}
+              onCustomAuthorNameChange={setEditCustomAuthorName}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditTarget(null)}>

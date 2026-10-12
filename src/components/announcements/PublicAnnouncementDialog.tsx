@@ -4,6 +4,7 @@ import {
   announcementUpdatedKey,
   saveDismissedAnnouncementKey,
 } from "@/lib/announcements";
+import { AnnouncementContentView } from "@/components/announcements/AnnouncementContentView";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -55,9 +56,7 @@ export function PublicAnnouncementDialog({ announcement, open, onOpenChange }: P
         </div>
 
         <div className="px-5 py-4 min-h-[120px] flex flex-col">
-          <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground flex-1">
-            {announcement.content}
-          </div>
+          <AnnouncementContentView content={announcement.content} />
           <p className="text-xs text-muted-foreground text-right mt-4 pt-3 border-t">
             ประกาศโดย {announcement.authorName?.trim() || announcement.authorEmail || "Super Admin"}
           </p>

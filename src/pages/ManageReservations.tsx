@@ -88,7 +88,8 @@ export default function ManageReservations() {
         r.topic?.toLowerCase().includes(q) ||
         r.bookerName?.toLowerCase().includes(q) ||
         r.department?.toLowerCase().includes(q) ||
-        r.room?.toLowerCase().includes(q);
+        r.room?.toLowerCase().includes(q) ||
+        String(r.bookerPhone ?? "").includes(q);
       const matchRoom   = roomMatchesFilter(r.room ?? "", filterRoom, allRooms);
       const matchStatus = filterStatus === "all" || r.status === filterStatus;
       return matchSearch && matchRoom && matchStatus;
@@ -248,6 +249,7 @@ export default function ManageReservations() {
                   <TableHead>เรื่อง</TableHead>
                   <TableHead>หน่วยงาน</TableHead>
                   <TableHead>ผู้จอง</TableHead>
+                  <TableHead className="whitespace-nowrap">เบอร์โทร</TableHead>
                   <TableHead>สถานะ</TableHead>
                   <TableHead className="text-right">จัดการ</TableHead>
                 </TableRow>
@@ -255,7 +257,7 @@ export default function ManageReservations() {
               <TableBody>
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-10">
+                    <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-10">
                       ไม่พบรายการ
                     </TableCell>
                   </TableRow>
@@ -284,6 +286,9 @@ export default function ManageReservations() {
                       <TableCell className="text-xs max-w-[180px] truncate">{r.topic}</TableCell>
                       <TableCell className="text-xs">{r.department}</TableCell>
                       <TableCell className="text-xs">{r.bookerName}</TableCell>
+                      <TableCell className="text-xs font-mono tabular-nums whitespace-nowrap">
+                        {r.bookerPhone || "—"}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={STATUS_LABEL[r.status]?.variant ?? "outline"} className="text-xs">
                           {STATUS_LABEL[r.status]?.text ?? r.status}

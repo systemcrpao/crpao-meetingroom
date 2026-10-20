@@ -923,6 +923,9 @@ export default function ReservationForm() {
               สำหรับการขอใช้ห้องประชุมธรรมรับอรุณ โปรดประสานงานกับหน้าห้องนายก
               องค์การบริหารส่วนจังหวัดเชียงราย ก่อนดำเนินการจองทุกครั้ง
             </AlertDialogDescription>
+            <p className="mt-4 rounded-lg border-2 border-primary/30 bg-primary/10 px-4 py-3 text-center text-xl font-bold text-primary sm:text-2xl tabular-nums tracking-wide">
+              โทร. 4103
+            </p>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction>ตกลง</AlertDialogAction>

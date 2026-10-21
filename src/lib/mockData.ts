@@ -75,6 +75,15 @@ export const EQUIPMENT_OPTIONS = [
   "ระบบประชุมวีดิทัศน์ทางไกล VCS",
 ];
 
+export const VCS_EQUIPMENT_LABEL = "ระบบประชุมวีดิทัศน์ทางไกล VCS";
+
+export function reservationUsesVcs(r: { equipment?: unknown }): boolean {
+  if (!Array.isArray(r.equipment)) return false;
+  return r.equipment.some(
+    (item) => item === VCS_EQUIPMENT_LABEL || String(item).includes("VCS"),
+  );
+}
+
 /** @deprecated ใช้ roomSolidColorClass(colorKey) กับ MeetingRoom แทน */
 export const ROOM_COLORS: Record<string, string> = Object.fromEntries(
   DEFAULT_MEETING_ROOMS.map((r) => [r.value, roomSolidColorClass(r.colorKey)]),

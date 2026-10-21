@@ -20,6 +20,7 @@ import AdminSatisfactionReport from "@/pages/AdminSatisfactionReport";
 import AdminSatisfactionResponseList from "@/pages/AdminSatisfactionResponseList";
 import AdminSatisfactionLayout from "@/layouts/AdminSatisfactionLayout";
 import AdminAnnouncements from "@/pages/AdminAnnouncements";
+import AdminVcsSchedule from "@/pages/AdminVcsSchedule";
 import TrackingPage from "@/pages/TrackingPage";
 import RequestEditBookingPage from "@/pages/RequestEditBookingPage";
 import NotFound from "./pages/NotFound";
@@ -180,6 +181,20 @@ function AppRoutes() {
               <RequireSuperAdmin>
                 <AppLayout>
                   <AdminAnnouncements />
+                </AppLayout>
+              </RequireSuperAdmin>
+            </RequireAdmin>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/vcs"
+        element={
+          <RequireAuth>
+            <RequireAdmin>
+              <RequireSuperAdmin>
+                <AppLayout>
+                  <AdminVcsSchedule />
                 </AppLayout>
               </RequireSuperAdmin>
             </RequireAdmin>

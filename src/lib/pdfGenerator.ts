@@ -1,5 +1,11 @@
 import { resolveDepartmentForDisplay } from "@/lib/mockData";
-import { DEFAULT_MEETING_ROOMS, resolveRoom, type MeetingRoom } from "@/lib/meetingRooms";
+import {
+  DEFAULT_MEETING_ROOMS,
+  isSecretaryGeneralAddresseeRoom,
+  pdfFormAddressee,
+  resolveRoom,
+  type MeetingRoom,
+} from "@/lib/meetingRooms";
 import { parseApprovedAt } from "@/lib/officialPrintNumber";
 import { hasBookingFeedbackForTracking } from "@/lib/bookingFeedback";
 import { db } from "@/lib/firebase";
@@ -144,9 +150,18 @@ function buildRightColumnHtml(
   roomCoordinator: { name: string; position: string },
   divisionChief: { name: string; position: string },
   secretaryChief: { name: string; position: string },
+  addressee: string,
+  secretaryStaffLayout: boolean,
   extras: OfficialPrintExtras,
 ): string {
   const mark = extras.markApprovedChecks;
+  const fillSignatures = filledStaff && !secretaryStaffLayout;
+  const divisionOpinionLabel = secretaryStaffLayout
+    ? "ความเห็นหัวหน้าฝ่าย"
+    : "ความเห็นหัวหน้าฝ่ายอำนวยการ";
+  const approvalHeading = secretaryStaffLayout
+    ? "การอนุมัติ"
+    : "การอนุมัติ (หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด)";
   const completedStamp = extras.showCompletedStamp
     ? `<img src="${extras.assetBase}survey-completed-stamp.png" class="survey-completed-stamp" alt="" />`
     : "";
@@ -160,37 +175,37 @@ function buildRightColumnHtml(
 
       <div class="staff-block">
         <p style="font-weight:700">เจ้าหน้าที่</p>
-        <p>เรียน&nbsp;&nbsp;หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด</p>
+        <p>เรียน&nbsp;&nbsp;${esc(addressee)}</p>
         <div class="tab">
           <div class="check-row">${checkBoxMark(mark)}ว่าง&nbsp;&nbsp;สามารถใช้งานได้</div>
           <div class="check-row">${checkBoxMark(false)}ไม่ว่าง&nbsp;&nbsp;เนื่องจาก...........................................................</div>
         </div>
         <p>เห็นควรมอบหมายให้...................................................................</p>
         <p>เป็นผู้ดูแลห้องประชุม</p>
-        ${staffSignBlock(filledStaff, roomCoordinator.name, roomCoordinator.position)}
+        ${staffSignBlock(fillSignatures, roomCoordinator.name, roomCoordinator.position)}
       </div>
 
       <div class="staff-block">
         <p style="font-weight:700">ข้อพิจารณา</p>
-        <p style="font-size:10pt">ความเห็นหัวหน้าฝ่ายอำนวยการ</p>
+        <p style="font-size:10pt">${divisionOpinionLabel}</p>
         <div class="thai-distribute-block">
           <p class="thai-distributed-line">กําชับให้ผู้ใช้ห้องประชุมฯ ดูแลความสะอาดและรักษา</p>
           <p class="thai-distributed-line">ทรัพย์สินร่วมกับเจ้าหน้าที่ประจําห้องประชุม เพื่อมิให้</p>
           <p class="thai-distributed-plain">เกิดความเสียหายพร้อมทั้ง ปิดระบบไฟฟ้าและอุปกรณ์ทุกชนิดหลังเสร็จสิ้นการประชุม</p>
         </div>
         <p class="tab-2">จึงเรียนมาเพื่อโปรดพิจารณา</p>
-        ${staffSignBlock(filledStaff, divisionChief.name, divisionChief.position)}
+        ${staffSignBlock(fillSignatures, divisionChief.name, divisionChief.position)}
       </div>
 
       <p style="border-top:0.5pt solid #000;padding-top:8pt;margin-top:12pt;font-weight:700">
-        การอนุมัติ (หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด)
+        ${approvalHeading}
       </p>
       <div class="tab">
         <div class="check-row">${checkBoxMark(mark)}เห็นชอบ</div>
         <div class="check-row">${checkBoxMark(mark)}ดำเนินการ</div>
         <div class="check-row">${checkBoxMark(false)}...............................................................................</div>
       </div>
-      ${staffSignBlock(filledStaff, secretaryChief.name, secretaryChief.position)}
+      ${staffSignBlock(fillSignatures, secretaryChief.name, secretaryChief.position)}
 
       <div class="eval-box">
         ${completedStamp}
@@ -263,13 +278,8 @@ function buildPrintHtml(
 ): string {
   const isOfficial = mode === "official";
   const assetBase = import.meta.env.BASE_URL;
-  const now = new Date();
-  const { day, month, yearBE } = formatThaiDateParts(now);
-  const dd = String(now.getDate()).padStart(2, "0");
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const yy = String(now.getFullYear() + 543);
-  const hh = String(now.getHours()).padStart(2, "0");
-  const min = String(now.getMinutes()).padStart(2, "0");
+  const submittedAt = parseApprovedAt(data.createdAt) ?? new Date();
+  const { day, month, yearBE } = formatThaiDateParts(submittedAt);
 
   const dept = esc(resolveDepartmentForDisplay(data));
   const topic = esc(data.topic);
@@ -282,6 +292,9 @@ function buildPrintHtml(
       ? `จัดขึ้นในวันที่ ${dateRange}<br />&nbsp;&nbsp;&nbsp;&nbsp;เวลา ${start} น. ถึง เวลา ${end} น. (รวม ${dayCount} วัน)`
       : `จัดขึ้นในวันที่ ${dateRange}&nbsp;&nbsp;&nbsp;&nbsp;เวลา ${start} น. ถึง ${end} น.`;
   const room = resolveRoom(String(data.room ?? ""));
+  const addressee = pdfFormAddressee(String(data.room ?? ""), rooms);
+  const secretaryStaffLayout = isSecretaryGeneralAddresseeRoom(String(data.room ?? ""), rooms);
+  const internalPhone = secretaryStaffLayout ? "4103" : "3503";
   const participants = esc(data.participants);
   const booker = esc(data.bookerName);
   const position = esc(data.bookerPosition);
@@ -322,6 +335,8 @@ function buildPrintHtml(
     roomCoordinator,
     divisionChief,
     secretaryChief,
+    addressee,
+    secretaryStaffLayout,
     {
       assetBase,
       markApprovedChecks: isOfficial && isApproved,
@@ -520,13 +535,13 @@ function buildPrintHtml(
         <div class="date-line" style="font-weight:700">หมายเลขติดตาม ${tracking}</div>
         <br />
         <p class="title">แบบฟอร์มขอใช้ห้องประชุม</p>
-        <p class="subtitle">สำนักปลัดองค์การบริหารส่วนจังหวัด</p>
-        <p class="phone">เบอร์โทรศัพท์ภายใน 3503</p>
+        <p class="subtitle">องค์การบริหารส่วนจังหวัดเชียงราย</p>
+        <p class="phone">เบอร์โทรศัพท์ภายใน ${internalPhone}</p>
       </div><br />
       <p class="date-line">วันที่ ${day} เดือน ${month} ${yearBE}</p>
 
       <p><span class="th-word">เรื่อง</span>&nbsp;&nbsp;&nbsp;ขอใช้ห้องประชุม</p>
-      <p><span class="th-word">เรียน</span>&nbsp;&nbsp;&nbsp;หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด</p>
+      <p><span class="th-word">เรียน</span>&nbsp;&nbsp;&nbsp;${esc(addressee)}</p>
       <p class="tab">ด้วย&nbsp;&nbsp;${dept}</p>
       <p>มีความประสงค์จะให้ดำเนินการประชุม/อบรม&nbsp;:&nbsp;โครงการ/<span class="th-word">เรื่อง</span></p>
       <p style="padding-left:1em">${topic}</p>

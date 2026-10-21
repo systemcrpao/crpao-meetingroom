@@ -350,6 +350,7 @@ export default function ReservationForm() {
       const allDateStrs = datesToBook.map((d) => format(d, "yyyy-MM-dd"));
       setSavedFormData({
         ...firstFormData,
+        createdAt: new Date().toISOString(),
         totalDays: datesToBook.length,
         dateEnd: datesToBook.length > 1 ? allDateStrs[allDateStrs.length - 1] : undefined,
         allDates: allDateStrs,

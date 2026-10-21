@@ -213,6 +213,51 @@ export function sortMeetingRooms(list: MeetingRoom[]): MeetingRoom[] {
  * รวมเอกสารซ้ำที่ชื่อห้อง (value) เดียวกัน — ใช้ doc ที่ id ตรงกับ value เป็นหลัก
  * (กรณีบันทึกครั้งก่อนสร้าง doc ใหม่แต่ไม่ลบ doc เก่า)
  */
+/** ห้องที่แบบฟอร์ม PDF ใช้คำว่า 「เรียน เลขานุการองค์การบริหารส่วนจังหวัด」 */
+const SECRETARY_GENERAL_ADDRESSEE_ROOM_KEYS = new Set([
+  "ธรรมรับอรุณ",
+  "สภาฯ",
+  "อรุณเบิกฟ้า",
+  "ชมตะวัน",
+]);
+
+export const PDF_ADDRESSEE_DEPUTY_SECRETARY =
+  "หัวหน้าสำนักปลัดองค์การบริหารส่วนจังหวัด";
+
+export const PDF_ADDRESSEE_ORG_SECRETARY = "เลขานุการองค์การบริหารส่วนจังหวัด";
+
+export function pdfFormAddressee(
+  storedRoom: string,
+  rooms: MeetingRoom[] = DEFAULT_MEETING_ROOMS,
+): string {
+  const key = resolveRoom(storedRoom).trim();
+  if (SECRETARY_GENERAL_ADDRESSEE_ROOM_KEYS.has(key)) {
+    return PDF_ADDRESSEE_ORG_SECRETARY;
+  }
+  const def = findMeetingRoom(storedRoom, rooms);
+  if (def && SECRETARY_GENERAL_ADDRESSEE_ROOM_KEYS.has(def.value.trim())) {
+    return PDF_ADDRESSEE_ORG_SECRETARY;
+  }
+  const label = (def?.label ?? storedRoom).trim();
+  if (
+    /สภ/.test(label) ||
+    label.includes("ชมตะวัน") ||
+    label.includes("อรุณเบิกฟ้า") ||
+    label.includes("ธรรมรับอรุณ")
+  ) {
+    return PDF_ADDRESSEE_ORG_SECRETARY;
+  }
+  return PDF_ADDRESSEE_DEPUTY_SECRETARY;
+}
+
+/** ห้องที่ใช้รูปแบบคอลัมน์ขวา (เจ้าหน้าที่) แบบเลขานุการ — ลายเซ็นว่าง + ข้อความพิเศษ */
+export function isSecretaryGeneralAddresseeRoom(
+  storedRoom: string,
+  rooms: MeetingRoom[] = DEFAULT_MEETING_ROOMS,
+): boolean {
+  return pdfFormAddressee(storedRoom, rooms) === PDF_ADDRESSEE_ORG_SECRETARY;
+}
+
 export function dedupeMeetingRoomsByValue(list: MeetingRoom[]): MeetingRoom[] {
   const byValue = new Map<string, MeetingRoom[]>();
   for (const room of list) {

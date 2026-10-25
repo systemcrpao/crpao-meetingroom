@@ -11,6 +11,7 @@ import {
   SmilePlus,
   Megaphone,
   Video,
+  CalendarPlus,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -42,6 +43,7 @@ const adminToolNavItems = [
 const superAdminNavItems = [
   { title: "ประกาศ", url: "/admin/announcements", icon: Megaphone },
   { title: "ตารางใช้งาน VCS", url: "/admin/vcs", icon: Video },
+  { title: "เพิ่มวันหยุด", url: "/admin/holidays", icon: CalendarPlus },
   { title: "สรุปความพึงพอใจ", url: "/admin/satisfaction", icon: SmilePlus },
   { title: "จัดการห้องประชุม", url: "/admin/rooms", icon: DoorOpen },
   { title: "กำหนดสิทธิ์ Admin", url: "/admin/permissions", icon: Shield },

@@ -21,6 +21,7 @@ import AdminSatisfactionResponseList from "@/pages/AdminSatisfactionResponseList
 import AdminSatisfactionLayout from "@/layouts/AdminSatisfactionLayout";
 import AdminAnnouncements from "@/pages/AdminAnnouncements";
 import AdminVcsSchedule from "@/pages/AdminVcsSchedule";
+import AdminManageHolidays from "@/pages/AdminManageHolidays";
 import TrackingPage from "@/pages/TrackingPage";
 import RequestEditBookingPage from "@/pages/RequestEditBookingPage";
 import NotFound from "./pages/NotFound";
@@ -195,6 +196,20 @@ function AppRoutes() {
               <RequireSuperAdmin>
                 <AppLayout>
                   <AdminVcsSchedule />
+                </AppLayout>
+              </RequireSuperAdmin>
+            </RequireAdmin>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/holidays"
+        element={
+          <RequireAuth>
+            <RequireAdmin>
+              <RequireSuperAdmin>
+                <AppLayout>
+                  <AdminManageHolidays />
                 </AppLayout>
               </RequireSuperAdmin>
             </RequireAdmin>

@@ -66,3 +66,18 @@ export function formatDateTimeThaiBE(date: Date): string {
 export function buddhistYearSelectLabel(ceYear: number): string {
   return String(ceYear + BUDDHIST_ERA_OFFSET);
 }
+
+/** ค.ศ. จาก พ.ศ. */
+export function ceYearFromBuddhist(buddhistYear: number): number {
+  return buddhistYear - BUDDHIST_ERA_OFFSET;
+}
+
+/** ตัวเลือกปี พ.ศ. สำหรับ dropdown (ค่า state เก็บเป็น พ.ศ.) */
+export function buildBuddhistYearOptions(spanBefore = 2, spanAfter = 4): number[] {
+  const currentBe = toBuddhistYear(new Date());
+  const start = currentBe - spanBefore;
+  const end = currentBe + spanAfter;
+  const years: number[] = [];
+  for (let be = start; be <= end; be++) years.push(be);
+  return years;
+}

@@ -123,6 +123,11 @@ service cloud.firestore {
       allow create, update, delete: if canManageAsSuperAdmin();
     }
 
+    match /customHolidays/{docId} {
+      allow read: if true;
+      allow create, update, delete: if canManageAsSuperAdmin();
+    }
+
     match /meetingRooms/{docId} {
       allow read: if true;
       allow create, update, delete: if canManageAsSuperAdmin();

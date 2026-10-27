@@ -147,3 +147,55 @@ export function downloadAuditLogsBackup(rows: Record<string, unknown>[], filePre
   a.click();
   URL.revokeObjectURL(url);
 }
+
+function csvEscape(value: unknown): string {
+  const s = value == null ? "" : String(value);
+  if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+const AUDIT_LOG_CSV_HEADERS = [
+  "วันที่",
+  "ผู้ทำ",
+  "อีเมล",
+  "การกระทำ",
+  "รหัสการกระทำ",
+  "รหัสรายการ",
+  "เลขติดตาม",
+  "รายละเอียด",
+] as const;
+
+export function auditLogsToCsv(rows: Record<string, unknown>[]): string {
+  const lines = [AUDIT_LOG_CSV_HEADERS.join(",")];
+  for (const row of rows) {
+    lines.push(
+      [
+        row.createdAt ?? "",
+        row.actorName ?? "",
+        row.actorEmail ?? "",
+        row.actionLabel ?? "",
+        row.action ?? "",
+        row.targetId ?? "",
+        row.trackingNumber ?? "",
+        row.summary ?? "",
+      ]
+        .map(csvEscape)
+        .join(","),
+    );
+  }
+  return lines.join("\r\n");
+}
+
+export function downloadAuditLogsCsv(
+  rows: Record<string, unknown>[],
+  filePrefix = "backup_audit_logs",
+): void {
+  const csv = `\uFEFF${auditLogsToCsv(rows)}`;
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${filePrefix}_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}

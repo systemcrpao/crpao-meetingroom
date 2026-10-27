@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
-import { Download, History, RefreshCw, Trash2 } from "lucide-react";
+import { Download, FileSpreadsheet, History, RefreshCw, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   AUDIT_LOG_PREVIEW_LIMIT,
   clearAllAuditLogs,
   downloadAuditLogsBackup,
+  downloadAuditLogsCsv,
   fetchAllAuditLogsForBackup,
   fetchAuditLogsPreview,
   type AuditLogDoc,
@@ -48,6 +49,7 @@ export default function AdminAuditLog() {
   const [rows, setRows] = useState<AuditLogDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [backingUp, setBackingUp] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
   const [clearOpen, setClearOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
 
@@ -89,6 +91,23 @@ export default function AdminAuditLog() {
     }
   };
 
+  const handleExportCsv = async () => {
+    setExportingCsv(true);
+    try {
+      const all = await fetchAllAuditLogsForBackup();
+      downloadAuditLogsCsv(all);
+      toast({
+        title: "บันทึก CSV แล้ว",
+        description: `ดาวน์โหลด ${all.length} รายการ (เปิดใน Excel ได้)`,
+      });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "บันทึก CSV ไม่สำเร็จ", variant: "destructive" });
+    } finally {
+      setExportingCsv(false);
+    }
+  };
+
   const handleClear = async () => {
     setClearing(true);
     try {
@@ -126,7 +145,11 @@ export default function AdminAuditLog() {
           </Button>
           <Button variant="outline" size="sm" onClick={handleBackup} disabled={backingUp}>
             <Download className="h-4 w-4 mr-1" />
-            {backingUp ? "กำลังสำรอง…" : "Backup"}
+            {backingUp ? "กำลังสำรอง…" : "Backup JSON"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={exportingCsv}>
+            <FileSpreadsheet className="h-4 w-4 mr-1" />
+            {exportingCsv ? "กำลังบันทึก…" : "บันทึก CSV"}
           </Button>
           <Button variant="destructive" size="sm" onClick={() => setClearOpen(true)} disabled={clearing}>
             <Trash2 className="h-4 w-4 mr-1" />

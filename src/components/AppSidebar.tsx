@@ -12,6 +12,7 @@ import {
   Megaphone,
   Video,
   CalendarPlus,
+  History,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -47,6 +48,7 @@ const superAdminNavItems = [
   { title: "สรุปความพึงพอใจ", url: "/admin/satisfaction", icon: SmilePlus },
   { title: "จัดการห้องประชุม", url: "/admin/rooms", icon: DoorOpen },
   { title: "กำหนดสิทธิ์ Admin", url: "/admin/permissions", icon: Shield },
+  { title: "บันทึกกิจกรรม", url: "/admin/audit-log", icon: History },
 ];
 
 export function AppSidebar() {

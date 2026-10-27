@@ -6,6 +6,9 @@ import { Pencil, Trash2, CalendarIcon, Search, ChevronLeft, ChevronRight } from 
 import { cn } from "@/lib/utils";
 import { TIME_SLOTS, resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
 import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAdminProfile } from "@/contexts/AdminProfileContext";
+import { auditActorFromSession, writeAuditLog } from "@/lib/auditLog";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import {
@@ -43,6 +46,8 @@ const STATUS_LABEL: Record<string, { text: string; variant: "secondary" | "defau
 
 export default function ManageReservations() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { profile } = useAdminProfile();
   const { activeRooms, allRooms } = useMeetingRooms();
 
   // ---- State ----
@@ -126,6 +131,16 @@ export default function ManageReservations() {
     if (!deleteTarget) return;
     try {
       await deleteDoc(doc(db, "reservations", deleteTarget.id));
+      const actor = auditActorFromSession(user, profile);
+      if (actor) {
+        await writeAuditLog({
+          action: "reservation_delete",
+          targetId: deleteTarget.id,
+          trackingNumber: deleteTarget.trackingNumber,
+          summary: deleteTarget.topic ? `ลบ: ${deleteTarget.topic}` : "ลบจากจัดการการจอง",
+          actor,
+        });
+      }
       toast({ title: "ลบรายการแล้ว", description: `ยกเลิกการจอง "${deleteTarget.topic}" เรียบร้อย` });
     } catch {
       toast({ title: "เกิดข้อผิดพลาด", description: "ลบไม่สำเร็จ กรุณาลองใหม่", variant: "destructive" });
@@ -184,6 +199,16 @@ export default function ManageReservations() {
         startTime: editStart,
         endTime:   editEnd,
       });
+      const actor = auditActorFromSession(user, profile);
+      if (actor) {
+        await writeAuditLog({
+          action: "reservation_edit",
+          targetId: editTarget.id,
+          trackingNumber: editTarget.trackingNumber,
+          summary: `${editRoom} ${newDateStr} ${editStart}–${editEnd}`,
+          actor,
+        });
+      }
       toast({ title: "อัปเดตแล้ว", description: "แก้ไขรายการจองเรียบร้อย" });
       setEditTarget(null);
     } catch {

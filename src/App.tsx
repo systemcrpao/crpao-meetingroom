@@ -22,6 +22,7 @@ import AdminSatisfactionLayout from "@/layouts/AdminSatisfactionLayout";
 import AdminAnnouncements from "@/pages/AdminAnnouncements";
 import AdminVcsSchedule from "@/pages/AdminVcsSchedule";
 import AdminManageHolidays from "@/pages/AdminManageHolidays";
+import AdminAuditLog from "@/pages/AdminAuditLog";
 import TrackingPage from "@/pages/TrackingPage";
 import RequestEditBookingPage from "@/pages/RequestEditBookingPage";
 import NotFound from "./pages/NotFound";
@@ -241,6 +242,20 @@ function AppRoutes() {
               <RequireSuperAdmin>
                 <AppLayout>
                   <AdminPermissions />
+                </AppLayout>
+              </RequireSuperAdmin>
+            </RequireAdmin>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/audit-log"
+        element={
+          <RequireAuth>
+            <RequireAdmin>
+              <RequireSuperAdmin>
+                <AppLayout>
+                  <AdminAuditLog />
                 </AppLayout>
               </RequireSuperAdmin>
             </RequireAdmin>

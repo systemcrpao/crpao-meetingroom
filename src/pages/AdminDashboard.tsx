@@ -28,6 +28,12 @@ import { ReservationEquipmentIcons } from "@/components/reservations/Reservation
 import { roomSolidColorClass } from "@/lib/meetingRooms";
 import { canApproveRoom } from "@/lib/adminAccess";
 import { useAdminProfile } from "@/contexts/AdminProfileContext";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  auditActorFromSession,
+  writeAuditLog,
+  type AuditLogAction,
+} from "@/lib/auditLog";
 import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { useToast } from "@/hooks/use-toast";
 import { sendTelegramApprovalNotification } from "@/lib/telegram";
@@ -54,6 +60,7 @@ const WEEK_LABELS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
 export default function AdminDashboard() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const { profile } = useAdminProfile();
   const { activeRooms, allRooms } = useMeetingRooms();
   const [reservations, setReservations] = useState<any[]>([]);
@@ -129,14 +136,28 @@ export default function AdminDashboard() {
       });
       return;
     }
+    const actor = auditActorFromSession(user, profile);
+    const logAction = async (action: AuditLogAction, summary?: string) => {
+      if (!actor) return;
+      await writeAuditLog({
+        action,
+        targetId: id,
+        trackingNumber: reservation.trackingNumber,
+        summary,
+        actor,
+      });
+    };
+
     try {
       if (cr?.type === "cancel") {
         if (newStatus === "approved") {
           if (!reservation.trackingNumber) throw new Error("ไม่พบหมายเลขติดตาม");
           await approveCancelChangeRequest(reservation.trackingNumber);
+          await logAction("change_approve_cancel", "อนุมัติยกเลิกการจอง");
           toast({ title: "อนุมัติยกเลิกแล้ว", description: "ลบการจองออกจากปฏิทินแล้ว" });
         } else {
           await rejectChangeRequest(reservation);
+          await logAction("change_reject_cancel", "ไม่อนุมัติคำขอยกเลิก");
           toast({ title: "ไม่อนุมัติคำขอยกเลิก", description: "การจองยังคงอยู่ตามเดิม" });
         }
         return;
@@ -146,6 +167,10 @@ export default function AdminDashboard() {
         if (newStatus === "approved") {
           await approveEditChangeRequest(id);
           const wasPending = reservation.status === "pending";
+          await logAction(
+            "change_approve_edit",
+            wasPending ? "อนุมัติแก้ไข (รายการยังรออนุมัติจอง)" : "อนุมัติแก้ไขวัน เวลา ห้อง",
+          );
           toast({
             title: "อนุมัติการแก้ไขแล้ว",
             description: wasPending
@@ -154,6 +179,7 @@ export default function AdminDashboard() {
           });
         } else {
           await rejectChangeRequest(reservation);
+          await logAction("change_reject_edit", "ไม่อนุมัติคำขอแก้ไข");
           toast({ title: "ไม่อนุมัติคำขอแก้ไข", description: "คงวันและเวลาเดิม" });
         }
         return;
@@ -161,6 +187,7 @@ export default function AdminDashboard() {
 
       if (newStatus === "approved") {
         const { officialDocNumber } = await approveReservationWithOfficialDoc(id);
+        await logAction("reservation_approve", `เลขที่เอกสาร ${officialDocNumber}`);
         toast({
           title: "อนุมัติแล้ว",
           description: `เลขที่เอกสาร ${officialDocNumber}`,
@@ -179,6 +206,7 @@ export default function AdminDashboard() {
         }
       } else {
         await deleteDoc(doc(db, "reservations", id));
+        await logAction("reservation_reject", "ปฏิเสธและลบรายการจอง");
         toast({ title: "ปฏิเสธและลบแล้ว", description: "รายการจองถูกปฏิเสธและลบออกจากระบบแล้ว", variant: "destructive" });
       }
     } catch (error) {

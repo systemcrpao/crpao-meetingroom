@@ -11,7 +11,13 @@ import {
 } from "@/lib/bookingFeedback";
 import { downloadBookingCardPng } from "@/lib/bookingCardImage";
 import { cn } from "@/lib/utils";
-import { DEPARTMENTS, DEPARTMENT_OTHER, EQUIPMENT_OPTIONS, TIME_SLOTS } from "@/lib/mockData";
+import {
+  DEPARTMENTS,
+  DEPARTMENT_OTHER,
+  TIME_SLOTS,
+  equipmentOptionsForRoom,
+  filterEquipmentForRoom,
+} from "@/lib/mockData";
 import { useMeetingRooms } from "@/contexts/MeetingRoomsContext";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
@@ -87,7 +93,7 @@ async function getUniqueTrackingNumber(): Promise<string> {
 export default function ReservationForm() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { activeRooms } = useMeetingRooms();
+  const { activeRooms, allRooms } = useMeetingRooms();
   const [department, setDepartment] = useState("");
   const [departmentOther, setDepartmentOther] = useState("");
   const [topic, setTopic] = useState("");
@@ -186,8 +192,14 @@ export default function ReservationForm() {
     );
   };
 
+  const visibleEquipmentOptions = useMemo(
+    () => equipmentOptionsForRoom(room, allRooms),
+    [room, allRooms],
+  );
+
   const handleRoomChange = (value: string) => {
     setRoom(value);
+    setEquipment((prev) => filterEquipmentForRoom(value, prev, allRooms));
     if (value === ROOM_THAMMARAP_ARUN) {
       setThammarapArunNoticeOpen(true);
     }
@@ -806,7 +818,7 @@ export default function ReservationForm() {
                 <MonitorSpeaker className="h-3.5 w-3.5 text-orange-500" /> อุปกรณ์ที่ต้องการ
               </Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {EQUIPMENT_OPTIONS.map((item) => (
+                {visibleEquipmentOptions.map((item) => (
                   <div key={item} className="flex items-center space-x-2">
                     <Checkbox
                       id={item}

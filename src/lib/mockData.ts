@@ -2,6 +2,7 @@
 
 import {
   DEFAULT_MEETING_ROOMS,
+  findMeetingRoom,
   getRoomLabelFromList,
   roomColorClassFromList,
   roomMatchesFilterWithList,
@@ -76,6 +77,44 @@ export const EQUIPMENT_OPTIONS = [
 ];
 
 export const VCS_EQUIPMENT_LABEL = "ระบบประชุมวีดิทัศน์ทางไกล VCS";
+
+/** ห้องอรุณเบิกฟ้า — ไม่ให้เลือกอุปกรณ์บางรายการ */
+export const ARUN_BERK_FA_ROOM = "อรุณเบิกฟ้า";
+
+const EQUIPMENT_HIDDEN_FOR_ARUN_BERK_FA = new Set([
+  "เครื่องฉาย Projector",
+  "อุปกรณ์ต่อพ่วง",
+  "ระบบอินเตอร์เน็ต",
+  VCS_EQUIPMENT_LABEL,
+]);
+
+export function isArunBerkFaRoom(storedRoom: string, rooms: MeetingRoom[] = DEFAULT_MEETING_ROOMS): boolean {
+  const key = resolveRoom(storedRoom).trim();
+  if (key === ARUN_BERK_FA_ROOM || key.includes("อรุณเบิกฟ้า")) return true;
+  const def = findMeetingRoom(storedRoom, rooms);
+  const label = (def?.label ?? "").trim();
+  return label.includes("อรุณเบิกฟ้า");
+}
+
+export function equipmentOptionsForRoom(
+  storedRoom: string,
+  rooms: MeetingRoom[] = DEFAULT_MEETING_ROOMS,
+): string[] {
+  if (!storedRoom.trim()) return [...EQUIPMENT_OPTIONS];
+  if (isArunBerkFaRoom(storedRoom, rooms)) {
+    return EQUIPMENT_OPTIONS.filter((item) => !EQUIPMENT_HIDDEN_FOR_ARUN_BERK_FA.has(item));
+  }
+  return [...EQUIPMENT_OPTIONS];
+}
+
+export function filterEquipmentForRoom(
+  storedRoom: string,
+  selected: string[],
+  rooms: MeetingRoom[] = DEFAULT_MEETING_ROOMS,
+): string[] {
+  const allowed = new Set(equipmentOptionsForRoom(storedRoom, rooms));
+  return selected.filter((item) => allowed.has(item));
+}
 
 export function reservationUsesVcs(r: { equipment?: unknown }): boolean {
   if (!Array.isArray(r.equipment)) return false;

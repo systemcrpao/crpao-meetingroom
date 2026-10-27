@@ -24,6 +24,7 @@ import {
   monthBookingCap,
 } from "@/components/calendar/calendarHolidayUi";
 import { resolveRoom, roomColorClass, roomMatchesFilter } from "@/lib/mockData";
+import { ReservationEquipmentIcons } from "@/components/reservations/ReservationEquipmentIcons";
 import { roomSolidColorClass } from "@/lib/meetingRooms";
 import { canApproveRoom } from "@/lib/adminAccess";
 import { useAdminProfile } from "@/contexts/AdminProfileContext";
@@ -417,7 +418,6 @@ export default function AdminDashboard() {
 
       {/* Calendar + Daily Bookings */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Calendar View */}
       <Card className="lg:col-span-2">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -713,16 +713,13 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* Daily Bookings Card */}
       <Card className="lg:col-span-1">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
             รายการจองประจำวัน
           </CardTitle>
-          <CardDescription>
-            {formatDateThaiFullBE(selectedDay)}
-          </CardDescription>
+          <CardDescription>{formatDateThaiFullBE(selectedDay)}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <SelectedDayHolidayPanel holidays={selectedDayHolidays} />
@@ -738,7 +735,7 @@ export default function AdminDashboard() {
                     "rounded-lg border p-3 space-y-1.5",
                     r.status === "pending"
                       ? "border-dashed border-muted-foreground/50 bg-muted/30"
-                      : "border-border"
+                      : "border-border",
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -747,15 +744,15 @@ export default function AdminDashboard() {
                         variant="outline"
                         className={cn(
                           "text-xs",
-                          r.status === "pending"
-                            ? ""
-                            : roomColorClass(r.room, true, allRooms)
+                          r.status === "pending" ? "" : roomColorClass(r.room, true, allRooms),
                         )}
                       >
                         {resolveRoom(r.room)}
                       </Badge>
                       {r.status === "pending" && (
-                        <Badge variant="secondary" className="text-[10px]">รออนุมัติ</Badge>
+                        <Badge variant="secondary" className="text-[10px]">
+                          รออนุมัติ
+                        </Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -765,15 +762,20 @@ export default function AdminDashboard() {
                   </div>
                   <p className="text-sm font-medium leading-snug">{r.topic}</p>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <MapPin className="h-3 w-3" />
-                      {r.department}
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+                      <MapPin className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{r.department}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <User className="h-3 w-3" />
-                      {r.bookerName}
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0 ml-2">
+                      <User className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{r.bookerName}</span>
                     </div>
                   </div>
+                  <ReservationEquipmentIcons
+                    equipment={r.equipment}
+                    size="md"
+                    className="justify-start pt-0.5"
+                  />
                 </div>
               ))}
             </div>

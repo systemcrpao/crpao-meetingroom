@@ -43,6 +43,7 @@ import ReservationForm from "@/pages/ReservationForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ReservationDayDetailCard } from "@/components/reservations/ReservationDayDetailCard";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -461,44 +462,12 @@ export default function PublicPage() {
                     ) : (
                   <div className="space-y-1.5">
                     {selectedBookings.map((r) => (
-                      <div key={r.id}
-                        className={cn(
-                          "rounded-md border p-2 space-y-1 bg-transparent",
-                          r.status === "pending"
-                            ? "border-dashed border-muted-foreground/40 bg-muted/20"
-                            : "border-border bg-card"
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-xs font-semibold leading-snug">{r.topic}</span>
-                          <Badge
-                            variant={r.status === "approved" ? "default" : "secondary"}
-                            className="text-[10px] h-5 flex-shrink-0"
-                          >
-                            {r.status === "approved" ? "อนุมัติแล้ว" : "รออนุมัติ"}
-                          </Badge>
-                        </div>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3 flex-shrink-0" />
-                            <span>{r.startTime}–{r.endTime} น.</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <MapPin className="h-3 w-3 flex-shrink-0" />
-                            <Badge variant="outline" className={cn("text-[10px] h-4 px-1.5", roomColorClass(r.room, true, allRooms))}>
-                              {resolveRoom(r.room)}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <User className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{r.bookerName}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Building className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{r.department}</span>
-                          </div>
-                        </div>
-                      </div>
+                      <ReservationDayDetailCard
+                        key={r.id}
+                        reservation={r}
+                        allRooms={allRooms}
+                        density="compact"
+                      />
                     ))}
                   </div>
                     )}

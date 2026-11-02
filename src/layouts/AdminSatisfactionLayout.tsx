@@ -7,7 +7,7 @@ export default function AdminSatisfactionLayout() {
       <div>
         <h1 className="text-2xl font-bold">สรุปความพึงพอใจ</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          แบบประเมิน 5 ข้อ 3 ด้าน — สำหรับ Super Admin เสนอผู้บริหาร
+          แบบประเมิน 5 ข้อ 3 ด้าน — รายงานแยกตามเดือนที่ใช้ห้อง (วันประชุม)
         </p>
       </div>
       <SatisfactionSubNav />

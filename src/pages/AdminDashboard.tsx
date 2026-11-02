@@ -387,7 +387,14 @@ export default function AdminDashboard() {
                           </>
                         )}
                       </TableCell>
-                      <TableCell className="text-xs">{r.bookerName}</TableCell>
+                      <TableCell className="text-xs">
+                        <div>{r.bookerName || "—"}</div>
+                        {r.bookerPhone ? (
+                          <div className="text-muted-foreground font-mono tabular-nums mt-0.5">
+                            {r.bookerPhone}
+                          </div>
+                        ) : null}
+                      </TableCell>
                       <TableCell>
                         {r.changeRequest?.type === "edit" ? (
                           <Badge variant="secondary" className="text-xs bg-sky-100 text-sky-800">

@@ -9,9 +9,12 @@ import {
   SURVEY_SECTIONS,
   type BookingFeedbackRow,
   type DimensionKey,
+  buildSatisfactionResultSummaryText,
   computeSatisfactionSummary,
-  filterFeedbackByPeriod,
+  filterFeedbackByMeetingPeriod,
+  filterReservationsByMeetingPeriod,
   formatAvgScore,
+  SATISFACTION_REPORT_FOOTNOTE,
   satisfactionLevelLabel,
 } from "@/lib/bookingFeedback";
 import { openSatisfactionReportPdf } from "@/lib/satisfactionReportPdf";
@@ -35,15 +38,22 @@ const THAI_MONTHS = [
 
 export default function AdminSatisfactionReport() {
   const [rows, setRows] = useState<BookingFeedbackRow[]>([]);
+  const [reservations, setReservations] = useState<{ id: string; date?: string; status?: string }[]>([]);
   const [viewMode, setViewMode] = useState<"month" | "year">("month");
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth());
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "bookingFeedback"), (snap) => {
+    const unsubFb = onSnapshot(collection(db, "bookingFeedback"), (snap) => {
       setRows(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as BookingFeedbackRow));
     });
-    return () => unsub();
+    const unsubRes = onSnapshot(collection(db, "reservations"), (snap) => {
+      setReservations(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+    return () => {
+      unsubFb();
+      unsubRes();
+    };
   }, []);
 
   const currentYear = new Date().getFullYear();
@@ -51,11 +61,18 @@ export default function AdminSatisfactionReport() {
   const beYear = selectedYear + 543;
 
   const filtered = useMemo(
-    () => filterFeedbackByPeriod(rows, viewMode, selectedYear, selectedMonth),
-    [rows, viewMode, selectedYear, selectedMonth],
+    () => filterFeedbackByMeetingPeriod(rows, reservations, viewMode, selectedYear, selectedMonth),
+    [rows, reservations, viewMode, selectedYear, selectedMonth],
   );
 
   const summary = useMemo(() => computeSatisfactionSummary(filtered), [filtered]);
+
+  const bookingCount = useMemo(
+    () => filterReservationsByMeetingPeriod(reservations, viewMode, selectedYear, selectedMonth).length,
+    [reservations, viewMode, selectedYear, selectedMonth],
+  );
+
+  const resultSummaryText = useMemo(() => buildSatisfactionResultSummaryText(summary), [summary]);
 
   const periodTitle =
     viewMode === "month"
@@ -67,7 +84,9 @@ export default function AdminSatisfactionReport() {
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">คะแนนและสถิติ</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">สรุปคะแนนเฉลี่ยและการกระจายคะแนนรายข้อ</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            สรุปตามเดือนที่ใช้ห้อง (วันประชุม) — ไม่ใช่เดือนที่ส่งแบบประเมิน
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-md border overflow-hidden">
@@ -114,7 +133,11 @@ export default function AdminSatisfactionReport() {
               </SelectContent>
             </Select>
           )}
-          <Button size="sm" className="h-8 gap-1.5" onClick={() => openSatisfactionReportPdf(periodTitle, summary)}>
+          <Button
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={() => openSatisfactionReportPdf(periodTitle, summary, bookingCount)}
+          >
             <FileDown className="h-3.5 w-3.5" />
             ส่งออก PDF
           </Button>
@@ -122,6 +145,27 @@ export default function AdminSatisfactionReport() {
       </div>
 
       <p className="text-sm font-medium text-primary">{periodTitle}</p>
+
+      <Card className="border-primary/25 bg-muted/30">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">รายงานสรุปความพึงพอใจ</CardTitle>
+          <CardDescription>
+            จัดกลุ่มตามเดือนประชุมในใบจอง · ข้อความตรงกับ PDF
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm leading-relaxed">
+          <p>
+            <span className="font-semibold">จำนวนการตอบแบบประเมิน :</span> {summary.totalResponses} รายการ
+            (จากการจอง {bookingCount} รายการ)
+          </p>
+          <p>
+            <span className="font-semibold">สรุปผล :</span>
+            <br />
+            {resultSummaryText}
+          </p>
+          <p className="text-muted-foreground text-xs pt-1">* {SATISFACTION_REPORT_FOOTNOTE}</p>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>

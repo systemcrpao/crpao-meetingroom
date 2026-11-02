@@ -146,6 +146,7 @@ export function parseFeedbackCreatedAt(row: BookingFeedbackRow): Date | null {
   return null;
 }
 
+/** กรองตามวันที่ส่งแบบประเมิน (createdAt) — ไม่ใช้ในรายงานสรุปหลัก */
 export function filterFeedbackByPeriod(
   rows: BookingFeedbackRow[],
   viewMode: "month" | "year",
@@ -160,6 +161,35 @@ export function filterFeedbackByPeriod(
     }
     return d.getFullYear() === year;
   });
+}
+
+/**
+ * กรองแบบประเมินตามเดือน/ปีที่ใช้ห้อง (วันประชุมในการจอง)
+ * — จอง พ.ย. แต่ตอบแบบ ต.ค. จะนับในรายงาน เดือน พ.ย.
+ */
+export function filterFeedbackByMeetingPeriod(
+  feedbackRows: BookingFeedbackRow[],
+  reservations: { trackingNumber?: string; date?: string; status?: string }[],
+  viewMode: "month" | "year",
+  year: number,
+  month: number,
+): BookingFeedbackRow[] {
+  const periodReservations = filterReservationsByMeetingPeriod(
+    reservations,
+    viewMode,
+    year,
+    month,
+  );
+  const trackingInPeriod = new Set(
+    periodReservations
+      .map((r) => String(r.trackingNumber ?? "").trim().toUpperCase())
+      .filter(Boolean),
+  );
+  const matched = feedbackRows.filter((row) => {
+    const code = String(row.trackingNumber ?? "").trim().toUpperCase();
+    return code && trackingInPeriod.has(code);
+  });
+  return Array.from(indexFeedbackByTracking(matched).values());
 }
 
 function validScores(rows: BookingFeedbackRow[], key: ScoreKey): number[] {
@@ -255,6 +285,21 @@ export function satisfactionLevelLabel(avg: number): string {
   if (avg >= 3) return "ปานกลาง";
   if (avg >= 2) return "ควรปรับปรุง";
   return "ต้องปรับปรุงเร่งด่วน";
+}
+
+/** หมายเหตุท้ายรายงานสรุปความพึงพอใจ (ขึ้นต้นด้วย *) */
+export const SATISFACTION_REPORT_FOOTNOTE =
+  "ใช้ประกอบการพิจารณาปรับปรุงระบบและการให้บริการต่อไป";
+
+/** ข้อความบรรทัด 「สรุปผล」 ในรายงาน */
+export function buildSatisfactionResultSummaryText(summary: SatisfactionSummary): string {
+  if (summary.totalResponses === 0) {
+    return "ยังไม่มีผู้ตอบแบบประเมินในช่วงเวลาที่เลือก";
+  }
+  if (summary.scoredResponses === 0) {
+    return "มีการตอบแบบประเมินแต่ยังไม่มีคะแนนที่นำมาคำนวณเฉลี่ย";
+  }
+  return `คะแนนเฉลี่ยรวมทุกข้อ ${formatAvgScore(summary.overallAverage)} จาก 5.00 (${satisfactionLevelLabel(summary.overallAverage)})`;
 }
 
 export function surveyScoresToFirestore(scores: BookingSurveyScores): Record<string, number | null> {

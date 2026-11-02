@@ -5,7 +5,9 @@ import {
   type DimensionKey,
   type SatisfactionSummary,
   type ScoreKey,
+  buildSatisfactionResultSummaryText,
   formatAvgScore,
+  SATISFACTION_REPORT_FOOTNOTE,
   satisfactionLevelLabel,
 } from "@/lib/bookingFeedback";
 
@@ -19,21 +21,27 @@ function esc(s: unknown): string {
 
 function distTable(key: ScoreKey, summary: SatisfactionSummary): string {
   const dist = summary.distributions[key];
-  const rows = ([5, 4, 3, 2, 1] as const)
-    .map((n) => `<tr><td class="c">${n}</td><td class="c">${dist[n]}</td></tr>`)
+  const scores = ([5, 4, 3, 2, 1] as const)
+    .map((n) => `<th class="c">${n}</th>`)
+    .join("");
+  const counts = ([5, 4, 3, 2, 1] as const)
+    .map((n) => `<td class="c">${dist[n]}</td>`)
     .join("");
   return `
-    <p class="sub-h">${esc(SCORE_LABELS[key])}</p>
-    <table class="dist">
-      <thead><tr><th>คะแนน</th><th>จำนวน (ครั้ง)</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+    <div class="dist-block">
+      <p class="sub-h">${esc(SCORE_LABELS[key])}</p>
+      <table class="dist-h">
+        <tr><th>คะแนน</th>${scores}</tr>
+        <tr><th>จำนวน</th>${counts}</tr>
+      </table>
+    </div>`;
 }
 
 export function buildSatisfactionReportPrintHtml(
   periodTitle: string,
   generatedAt: string,
   summary: SatisfactionSummary,
+  bookingCount: number,
 ): string {
   const assetBase = import.meta.env.BASE_URL;
 
@@ -103,13 +111,22 @@ export function buildSatisfactionReportPrintHtml(
     th, td { border: 1px solid #333; padding: 6px 8px; vertical-align: top; }
     th { background: #f0f4f8; font-weight: 700; }
     td.c, th.c { text-align: center; }
-    .dist { max-width: 280px; }
-    .sub-h { font-weight: 700; margin: 12px 0 4px; font-size: 10.5pt; }
+    .page-break { page-break-before: always; break-before: page; }
+    .dist-block { margin-bottom: 12px; }
+    .dist-h { width: 100%; max-width: 420px; }
+    .dist-h th:first-child { text-align: left; width: 4.2em; }
+    .sub-h { font-weight: 700; margin: 0 0 4px; font-size: 10.5pt; }
     .summary-box {
       border: 1px solid #333;
       padding: 10px 12px;
       margin: 12px 0;
       background: #fafafa;
+    }
+    .summary-box .result-line { margin: 10px 0 0; }
+    .summary-box .footnote {
+      margin: 12px 0 0;
+      font-size: 10pt;
+      color: #444;
     }
     .muted { color: #555; }
     ol.suggest { margin: 0; padding-left: 1.4em; }
@@ -123,15 +140,12 @@ export function buildSatisfactionReportPrintHtml(
   <h1>รายงานสรุปความพึงพอใจต่อระบบจองห้องประชุม</h1>
   <p class="org">องค์การบริหารส่วนจังหวัดเชียงราย</p>
   <p class="period">${esc(periodTitle)}</p>
-  <p class="meta-line">จัดทำเมื่อ ${esc(generatedAt)} · แหล่งข้อมูล: แบบประเมินหลังการจองผ่านระบบออนไลน์</p>
+  <p class="meta-line">จัดทำเมื่อ ${esc(generatedAt)} · จัดกลุ่มตามเดือนที่ใช้ห้อง (วันประชุมในใบจอง) ไม่ใช่เดือนที่ส่งแบบประเมิน</p>
 
   <div class="summary-box">
-    <p><strong>จำนวนการตอบแบบประเมิน:</strong> ${summary.totalResponses} รายการ
-    (มีคะแนน ${summary.scoredResponses} รายการ)</p>
-    <p><strong>สรุปผู้บริหาร:</strong>
-    คะแนนเฉลี่ยรวมทุกข้อ ${formatAvgScore(summary.overallAverage)} จาก 5.00
-    (${esc(satisfactionLevelLabel(summary.overallAverage))})
-    — ใช้ประกอบการพิจารณาปรับปรุงระบบและการให้บริการต่อไป</p>
+    <p><strong>จำนวนการตอบแบบประเมิน :</strong> ${summary.totalResponses} รายการ (จากการจอง ${bookingCount} รายการ)</p>
+    <p class="result-line"><strong>สรุปผล :</strong><br />${esc(buildSatisfactionResultSummaryText(summary))}</p>
+    <p class="footnote">* ${esc(SATISFACTION_REPORT_FOOTNOTE)}</p>
   </div>
 
   <h2>1. คะแนนเฉลี่ยรายด้าน</h2>
@@ -150,14 +164,16 @@ export function buildSatisfactionReportPrintHtml(
     <tbody>${itemRows}</tbody>
   </table>
 
-  <h2>3. การกระจายคะแนน (จำนวนครั้ง)</h2>
-  ${SURVEY_SECTIONS.flatMap((s) => s.items.map((i) => distTable(i.key, summary))).join("")}
+  <div class="page-break">
+    <h2>3. การกระจายคะแนน (จำนวนครั้ง)</h2>
+    ${SURVEY_SECTIONS.flatMap((s) => s.items.map((i) => distTable(i.key, summary))).join("")}
+  </div>
 
   <h2>4. ข้อเสนอแนะจากผู้ใช้งาน</h2>
   ${suggestionBlock}
 
   <div class="sign">
-    <p>จึงเรียนมาเพื่อโปรดทราบและพิจารณา</p>
+    <p>จึงเรียนมาเพื่อโปรดทราบ</p>
     <br /><br />
     <p style="padding-left: 55%;">(........................................................)</p>
     <p style="padding-left: 55%;">ผู้จัดทำรายงาน</p>
@@ -172,7 +188,11 @@ export function buildSatisfactionReportPrintHtml(
 </html>`;
 }
 
-export function openSatisfactionReportPdf(periodTitle: string, summary: SatisfactionSummary): void {
+export function openSatisfactionReportPdf(
+  periodTitle: string,
+  summary: SatisfactionSummary,
+  bookingCount: number,
+): void {
   const now = new Date();
   const generatedAt = now.toLocaleString("th-TH", {
     year: "numeric",
@@ -181,7 +201,7 @@ export function openSatisfactionReportPdf(periodTitle: string, summary: Satisfac
     hour: "2-digit",
     minute: "2-digit",
   });
-  const html = buildSatisfactionReportPrintHtml(periodTitle, generatedAt, summary);
+  const html = buildSatisfactionReportPrintHtml(periodTitle, generatedAt, summary, bookingCount);
   const win = window.open("", "_blank");
   if (!win) {
     alert("เบราว์เซอร์บล็อกหน้าต่างป๊อปอัป กรุณาอนุญาตแล้วลองใหม่");
